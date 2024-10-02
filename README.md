@@ -1,2 +1,2 @@
 # usconline-academics-designers
-# Demo Heading 2
+This code is published publicly at https://usconline.github.io/usconline-academics-designer-tools/
