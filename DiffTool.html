@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diff Tool</title>
+    <style>
+        .diff-add { background-color: lightgreen; }
+        .diff-remove { background-color: lightcoral; }
+        .container {
+            display: flex;
+        }
+        .column {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .column h3 {
+            text-align: center;
+        }
+        .highlight {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Text Diff Tool</h1>
+    <textarea id="text1" rows="10" cols="50" placeholder="Enter text here..."></textarea>
+    <textarea id="text2" rows="10" cols="50" placeholder="Enter text here..."></textarea>
+    <br>
+    <label>
+        <input type="checkbox" id="ignoreWhitespace">
+        Ignore excess whitespace
+    </label>
+    <br>
+    <button onclick="compareText()">Compare</button>
+    <div class="container" id="result">
+        <div class="column" id="leftColumn">
+            <h3>Text 1</h3>
+            <div id="leftResult"></div>
+        </div>
+        <div class="column" id="rightColumn">
+            <h3>Text 2</h3>
+            <div id="rightResult"></div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/diff@5.0.0/dist/diff.min.js"></script>
+<script>
+function compareText() {
+    const text1 = document.getElementById('text1').value;
+    const text2 = document.getElementById('text2').value;
+    const ignoreWhitespace = document.getElementById('ignoreWhitespace').checked;
+
+    let processedText1 = text1;
+    let processedText2 = text2;
+
+    if (ignoreWhitespace) {
+        processedText1 = processedText1.replace(/\s+/g, ' ').trim();
+        processedText2 = processedText2.replace(/\s+/g, ' ').trim();
+    }
+
+    const diff = Diff.diffWordsWithSpace(processedText1, processedText2);
+    formatDiff(diff);
+}
+
+function formatDiff(diff) {
+    const leftResult = document.getElementById('leftResult');
+    const rightResult = document.getElementById('rightResult');
+
+    leftResult.innerHTML = '';
+    rightResult.innerHTML = '';
+
+    diff.forEach(part => {
+        const span1 = document.createElement('span');
+        const span2 = document.createElement('span');
+
+        if (part.added) {
+            span2.className = 'diff-add highlight';
+            span2.textContent = part.value;
+        } else if (part.removed) {
+            span1.className = 'diff-remove highlight';
+            span1.textContent = part.value;
+        } else {
+            span1.textContent = part.value;
+            span2.textContent = part.value;
+        }
+
+        leftResult.appendChild(span1);
+        rightResult.appendChild(span2);
+    });
+}
+
+	</script>
+</body>
+</html>
