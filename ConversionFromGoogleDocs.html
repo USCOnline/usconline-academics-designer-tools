@@ -645,11 +645,11 @@ if (headingPrefix && readingTitle) {
 
 	    if (/multimedia/i.test(h3Element.textContent)) {
 		   if (/Video/i.test(headingPrefix)) {
-			  additionalContent = `&nbsp;(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
+			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
 		   } else if (/Audio/i.test(headingPrefix)) {
-			  additionalContent = `&nbsp;(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
+			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
 		   } else if (/Podcast/i.test(headingPrefix)) {
-			  additionalContent = `&nbsp;(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
+			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
 		   }
 	    }
 
