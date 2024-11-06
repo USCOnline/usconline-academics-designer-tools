@@ -71,16 +71,18 @@
 <form id="assignmentForm" style="display: none;">
 	
         <div class="input-group">
-            <label for="weekNumber"><strong>Week Number</strong></label>
+            <p>Enter each week number as a digit, (i.e. 4). If your course has multiple assignments per week, use X-X (i.e. 4-1). Use 8 for the Final Assessment.</p>
+		   <label for="weekNumber"><strong>Week Number</strong></label>
             <input type="text" id="weekNumber" name="weekNumber" placeholder="Enter week number">
         </div>
-	<p>Enter each week number as a digit, (i.e. 4). If your course has multiple assignments per week, use X-X (i.e. 4-1). Use 8 for the Final Assessment.</p>
+	
 	<p>&nbsp;</p>
         <div class="input-group">
+		   <p>Paste the entire block of code for the weekly assignment below. Select "Add Another" to enter each assignment. Select "Done" when you've pasted each assignment.</p>
             <label for="assignmentContent"><strong>Assignment Content</strong></label>
             <textarea id="assignmentContent" name="assignmentContent" placeholder="Paste the assignment content here"></textarea>
         </div>
-	<p>Paste the entire block of code for the weekly assignment above. Select "Add Another" to enter each assignment. Select "Done" when you've pasted each assignment.</p>
+	
         <button type="button" id="addAssignment">Add Another</button>
         <button type="button" id="done">Done</button>
     </form>
