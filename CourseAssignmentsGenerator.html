@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Assignments Generator</title>
+    <style>
+        body {
+            font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, "sans-serif";
+            margin: 20px;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button#addAssignment {
+            background-color: #007bff;
+            color: white;
+        }
+        button#done {
+            background-color: #28a745;
+            color: white;
+        }
+        #outputSection {
+            margin-top: 20px;
+            display: none;
+        }
+        textarea#finalOutput {
+            width: 100%;
+            height: 200px;
+        }
+        button#copyCode {
+            background-color: #17a2b8;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Course Assignments Generator</h1>
+    <p>Welcome to the companion app for the CPG to Canvas Converter! This tool will generate your Course Assignments page. Please follow the prompts below:</p>
+    
+    <!-- Course Code Input Section -->
+    <div class="input-group" id="courseCodeSection">
+        <label for="courseNumber">Course Number (ABC XXX)</label>
+        <input type="text" id="courseNumber" name="courseNumber" placeholder="Enter course number">
+        <button type="button" id="submitCourseCode">Submit Course Code</button>
+</div>
+
+    <!-- Assignment Input Form (initially hidden) -->
+	
+<form id="assignmentForm" style="display: none;">
+	
+        <div class="input-group">
+            <label for="weekNumber"><strong>Week Number</strong></label>
+            <input type="text" id="weekNumber" name="weekNumber" placeholder="Enter week number">
+        </div>
+	<p>Enter each week number as a digit, (i.e. 4). If your course has multiple assignments per week, use X-X (i.e. 4-1). Use 8 for the Final Assessment.</p>
+	<p>&nbsp;</p>
+        <div class="input-group">
+            <label for="assignmentContent"><strong>Assignment Content</strong></label>
+            <textarea id="assignmentContent" name="assignmentContent" placeholder="Paste the assignment content here"></textarea>
+        </div>
+	<p>Paste the entire block of code for the weekly assignment above. Select "Add Another" to enter each assignment. Select "Done" when you've pasted each assignment.</p>
+        <button type="button" id="addAssignment">Add Another</button>
+        <button type="button" id="done">Done</button>
+    </form>
+
+<div id="outputSection" style="display: none;">
+        <h2>Generated Output</h2>
+        <textarea id="finalOutput" readonly></textarea>
+        <button type="button" id="copyCode">Copy Code</button>
+    </div>
+
+<script>
+    // Variable to store the course code
+    let courseCode = '';
+
+    // Event listener for the "Submit Course Code" button
+    document.getElementById('submitCourseCode').addEventListener('click', function() {
+        // Get the course code entered by the user
+        const inputCourseCode = document.getElementById('courseNumber').value.trim();
+
+        // Validate and store the course code
+        if (inputCourseCode) {
+            courseCode = inputCourseCode;
+            alert(`Course code stored: ${courseCode}`);
+            
+            // Hide the course code input section and show the assignment input form
+            document.getElementById('courseCodeSection').style.display = 'none';
+            document.getElementById('assignmentForm').style.display = 'block';
+        } else {
+            alert('Please enter a valid course number.');
+        }
+    });
+    
+    // Array to store assignments
+    const assignments = [];
+
+    // Function to add an assignment
+    function addAssignment() {
+        // Get the week number and assignment content from user inputs
+        const weekNumber = document.getElementById('weekNumber').value.trim();
+        const assignmentContent = document.getElementById('assignmentContent').value.trim();
+
+        // Validate inputs
+        if (!weekNumber || !assignmentContent) {
+            alert('Please enter a valid week number and assignment content.');
+            return false;
+        }
+
+        // Parse the week number input to handle "x-x" format
+        let weekLabel = '';
+        const weekMatch = weekNumber.match(/^(\d+)(?:-(\d+))?$/);
+        if (weekMatch) {
+            const mainWeek = weekMatch[1];
+            const subWeek = weekMatch[2] ? `: Assignment ${weekMatch[2]}` : ': Assignment';
+            weekLabel = `Week ${mainWeek}${subWeek}`;
+        } else {
+            alert('Invalid week number format. Please use "X" or "X-X" (e.g., "4" or "4-1").');
+            return false;
+        }
+
+        // Store the assignment data
+        assignments.push({
+            week: weekLabel,
+            content: assignmentContent
+        });
+
+        // Clear the inputs for new entries
+        document.getElementById('weekNumber').value = '';
+        document.getElementById('assignmentContent').value = '';
+
+        return true;
+    }
+
+    // Event listener for the "Add Another" button
+    document.getElementById('addAssignment').addEventListener('click', function() {
+        addAssignment();
+    });
+
+    // Event listener for the "Done" button
+    document.getElementById('done').addEventListener('click', function() {
+        // Add the final entry if valid
+        if (document.getElementById('weekNumber').value.trim() || document.getElementById('assignmentContent').value.trim()) {
+            const added = addAssignment();
+            if (!added) return; // Prevent proceeding if the final entry is invalid
+        }
+
+        if (assignments.length === 0) {
+            alert('Please add at least one assignment before proceeding.');
+            return;
+        }
+
+        // Hide the form and display the output section
+        document.getElementById('assignmentForm').style.display = 'none';
+        document.getElementById('outputSection').style.display = 'block';
+
+        // Generate the output using the specified template
+        let outputHTML = `
+            <div class="alert alert-info">
+                <p style="text-align: center;"><span style="font-size: 14pt;"><strong>You can view all of your assignments for ${courseCode} in the tabs below.</strong></span></p> 
+            </div>
+            <p style="font-size: 12pt;">&nbsp;</p>
+            <div class="enhanceable_content tabs ui-tabs-minimal">
+                <ul>
+        `;
+
+        // Generate tab headers
+        assignments.forEach((assignment, index) => {
+            const tabLabel = (assignment.week.includes('Week 8')) ? 'Final Assessment' : assignment.week;
+            outputHTML += `<li><a href="#tabs-${index + 1}">${tabLabel}</a></li>`;
+        });
+
+        outputHTML += `
+                </ul>
+        `;
+
+        // Generate tab content sections and sanitize all assignment contents
+        assignments.forEach((assignment, index) => {
+            // Use a flexible regex to remove the first <hr> tag found
+            const sanitizedContent = assignment.content.replace(/<hr[^>]*>/, '');
+
+            outputHTML += `
+                <div id="tabs-${index + 1}" style="font-size: 12pt;">
+                    ${sanitizedContent}
+                </div>
+            `;
+        });
+
+        outputHTML += `
+            </div>
+        `;
+
+        document.getElementById('finalOutput').value = outputHTML;
+    });
+
+    // Event listener for the "Copy Code" button
+    document.getElementById('copyCode').addEventListener('click', function() {
+        const outputContent = document.getElementById('finalOutput').value;
+
+        // Copy the output content to the clipboard
+        navigator.clipboard.writeText(outputContent).then(() => {
+            alert('Code copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+        });
+    });
+</script>
+
+
+</body>
+
+</html>
