@@ -608,14 +608,14 @@ h2 {
 		   doc.querySelectorAll('ol, ul').forEach(el => el.remove());
 
 		   if (headingSize === '14pt') {
-			  console.log("Before removing <a> tags:", doc.body.innerHTML);
+			  //console.log("Before removing <a> tags:", doc.body.innerHTML);
 			  doc.querySelectorAll('a').forEach(a => {
 				 const parent = a.parentNode;
-				 console.log("Removing <a>:", a.outerHTML);
+				 //console.log("Removing <a>:", a.outerHTML);
 				 while (a.firstChild) parent.insertBefore(a.firstChild, a);
 				 parent.removeChild(a);
 			  });
-			  console.log("After removing <a> tags:", doc.body.innerHTML); 
+			  //console.log("After removing <a> tags:", doc.body.innerHTML); 
 		   }
 		   citation = doc.body.innerHTML.trim();
 	    }
