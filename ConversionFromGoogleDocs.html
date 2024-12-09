@@ -766,7 +766,7 @@ console.log("Detected YouTube ID: ", videoID); // Add this log to see if it's wo
 
 			  currentElement.insertAdjacentHTML('afterend', rawSectionContent);
 
-			   }
+			  }
 
 		   // Move to the next <h3>
 		   currentElement = currentElement.nextElementSibling;
@@ -901,20 +901,20 @@ console.log("iframeTemplate content before returning the template:", iframeTempl
 	}
 
     	function applyTransformations(html, transformations, config) {
-    let transformedHtml = html;
-    Object.keys(transformations).forEach(transformation => {
-        // Check if the next transformation is 'removePatterns'
-        if (transformation === 'removePatterns') {
-            console.log(`HTML before 'removePatterns':\n`, transformedHtml);
-        }
-        // Apply the current transformation
-        transformedHtml = transformations[transformation](transformedHtml, config);
-        // Debug output after each transformation
-//        console.log(`After ${transformation}:\n`, transformedHtml);
-    });
-    return transformedHtml;
-	    
-}
+			let transformedHtml = html;
+			Object.keys(transformations).forEach(transformation => {
+				// Check if the next transformation is 'removePatterns'
+				if (transformation === 'removePatterns') {
+					console.log(`HTML before 'removePatterns':\n`, transformedHtml);
+				}
+				// Apply the current transformation
+				transformedHtml = transformations[transformation](transformedHtml, config);
+				// Debug output after each transformation
+		//        console.log(`After ${transformation}:\n`, transformedHtml);
+			});
+			return transformedHtml;
+
+		}
 	
     	function ensureListsAreIntact(html) {
         const parser = new DOMParser();
