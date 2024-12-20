@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BooklistGenerator</title>
+</head>
+
+<style>
+body {
+	font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, "sans-serif";
+}
+h1, h2 {
+	color: #990000;
+}
+textarea {
+	display: block;
+	width: 100%;
+	margin-bottom: 10px;
+}
+#instructionsArea {
+	margin: 15px;
+}
+.contenteditable-container {
+	display: block;
+	max-height: 200px; /* Maximum height */
+	padding: 15px;
+	border: 1px solid #ccc;
+	margin: 15px;
+	overflow: auto; /* Enable scrolling */
+}
+.contenteditable {
+	min-height: 200px;
+	outline: none;
+}
+.flex-container {
+	display: flex;
+	flex-wrap: wrap;
+}
+.output-area {
+	padding: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+	flex: 46%;
+	overflow: scroll;
+	font-family: monospace;
+}
+.rendered-content {
+	padding: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+	flex: 8%;
+	overflow: scroll;
+}
+.rendered-table {
+	padding: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+	flex: 53%;
+	overflow: scroll;
+}
+/* Responsive layout - makes a one column layout (100%) instead of a two-column layout (50%) */
+@media (max-width: 800px) {
+.flex-item-right, .flex-item-left {
+	flex: 100%;
+}
+</style>
+<body>
+<div id="instructionsArea">
+	<h1 style="font-size: 18pt;">CPG to Booklist or Syllabus Generator</h1>
+	<p><strong>Instructions:</strong></p>
+	<ol>
+		<li>Open your CPG in Google Docs</li>
+		<li>Copy the entire document </li>
+		<ul>
+			<li>Edit &gt; Select all</li>
+		</ul>
+		<li>Paste the content into the box below</li>
+		<li>Press the &quot;Generate Booklist&quot; button</li>
+	</ol>
+</div>
+<div id="inputArea">
+	<div class="contenteditable-container">
+		<div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
+	</div>
+</div>
+<div>
+	<button id="booklistButton">Generate Booklist</button>
+	<button id="syllabusButton">Generate Syllabus</button>
+</div>
+<div class="flex-container">
+	<div id="booklistOutput" style="display: none;" class="output-area">Code Output</div>
+	<div id="renderedOutput" class="rendered-content"><strong>Visual Output</strong></div>
+	<div id="tableOutput" class="rendered-table"><strong>Table Output</strong></div>
+	<div id="syllabusOutput" class="output-area"><strong>Syllabus Output</strong></div>
+</div>
+<script>
+	// Declare the global variable at the top of the script
+    let transformedHtmlState = ""; // Global variable to store the transformed HTML reading list
+	
+	// Add the button click event listener
+	document.getElementById('booklistButton').addEventListener('click', generateBooklist);
+	document.getElementById('syllabusButton').addEventListener('click', generateSyllabus);
+	
+	//Function to generate the booklist
+	function generateBooklist() {
+	    var inputContent = document.getElementById('input').innerHTML;
+	    
+	    // Clean up and transform HTML
+	    var transformedContent = applyTransformations(inputContent, transformations);
+	    
+		// Store the transformed content in the global variable - this is the linear booklist
+    	transformedHtmlState = transformedContent;
+		console.log("HTML after applying transformations:", transformedHtmlState);
+		
+		// Output the final HTML to the textarea and rendered div
+	    document.getElementById('booklistOutput').textContent = transformedContent;
+	    document.getElementById('renderedOutput').innerHTML = transformedContent;
+		
+		// Log a message indicating that the state is stored
+    	console.log("Transformed HTML stored for later use.");
+		
+		// Call the parsing function AFTER the content is added to the DOM
+		console.log("Parsing dynamically added content...");
+		setTimeout(() => {
+			const allParsedData = parseAllAPAReferences(transformedContent);
+			console.log("All Extracted Data:", allParsedData);
+			renderTable(allParsedData);
+		}, 0);
+	}
+	
+	//Function to generate the syllabus
+	function generateSyllabus() {
+	    var inputContent = document.getElementById('input').innerHTML;
+	    
+	    // Step 1: Clean up and transform HTML (include multimedia in filtering)
+	    var transformedContent = applyTransformations(inputContent, transformations);
+	    var syllabusContent = transformations.keepReadingsSections(transformedContent, true);
+		console.log("Filtered Syllabus Content:", syllabusContent);
+	
+	    // Step 2: Parse APA references from the transformed content
+	    const allParsedData = parseAllAPAReferences(syllabusContent);
+	    console.log("Parsed APA Data for Syllabus:", allParsedData);
+	
+	    // Step 3: Create syllabus-specific content using parsed data
+	    const syllabusEntries = allParsedData.map(data => {
+	        return `
+	            <div class="syllabus-entry">
+	                <h3>${data.weekCategory}</h3>
+	                <p>
+	                    <strong>Authors:</strong> ${data.authors}<br>
+	                    <strong>Year:</strong> ${data.yearOfPublication}<br>
+	                    <strong>Title:</strong> ${data.articleChapterTitle}<br>
+	                    <strong>Source:</strong> ${data.journalOrBookTitle}<br>
+	                    <strong>URL:</strong> <a href="${data.primaryUrl}" target="_blank">${data.primaryUrl}</a>
+	                </p>
+	            </div>
+	        `;
+	    }).join("");
+	
+	    // Step 4: Output the syllabus content
+	    const syllabusOutput = document.getElementById('syllabusOutput');
+	    if (!syllabusOutput) {
+	        console.error("No output container found for syllabus.");
+	        return;
+	    }
+	    syllabusOutput.innerHTML = syllabusEntries;
+	
+	    console.log("Syllabus successfully generated.");
+	}
+	
+	// Function to apply transformations in sequence
+	function applyTransformations(html, transformations) {
+	    let transformedHtml = html;
+
+	    // Loop through each transformation and apply it
+	    for (const key in transformations) {
+	        if (typeof transformations[key] === 'function') {
+	            transformedHtml = transformations[key](transformedHtml);
+				
+			// Log the intermediate result after each transformation
+			//console.log(`After ${key} transformation:`, transformedHtml);
+	        }
+	    }
+	    return transformedHtml;
+	}
+	
+	// Function to extract components from APA 7 references
+	function parseAPAReference(h4Element, pElement) {
+		// Initialize an object to store the extracted data
+		const extractedData = {
+			weekCategory: "n/a", // Week X or Category title
+			journalOrBookTitle: "n/a", // Journal,book, or website title
+			journalVolume: "n/a", // Volume number
+			journalIssue: "n/a", // Issue number
+			journalMonth: "n/a", // Month of publication
+			yearOfPublication: "n.d.", // Year of publication
+			bookPublisher: "n/a", // Publisher
+			articleChapterTitle: "n/a", // Article or chapter title
+			authors: "n/a", // Authors
+			inclusivePages: "n/a", // Pages
+			issnIsbn: "n/a", // ISSN/ISBN
+			uscHasPdf: "", // Always empty
+			primaryUrl: "n/a", // Primary URL
+			secondaryUrl: "n/a", // Secondary URL
+			
+		};
+
+		// Extract Week/Category from <h4>
+		if (h4Element) {
+			//console.log("h4Element:", h4Element.outerHTML);
+			extractedData.weekCategory = h4Element.textContent.trim();
+		} else {
+			console.warn("No h4Element found.");
+		}
+
+		// Extract APA details from <p>
+		if (pElement) {
+			//console.log("pElement:", pElement.outerHTML);
+			const pText = pElement.textContent.trim();
+			console.log("pText:", pText);
+
+			// Extract the article/chapter title from the hyperlink
+			const titleLinkElement = pElement.querySelector("a");
+			if (titleLinkElement) {
+				extractedData.articleChapterTitle = titleLinkElement.textContent.trim();
+			} else {
+				console.warn("No hyperlink found for title extraction.");
+			}
+
+			// Extract authors (everything before the first open parenthesis "(")
+			const authorMatch = pText.match(/^(.*?)\s*\(/);
+			if (authorMatch) {
+				let authors = authorMatch[1].trim();
+
+				// Check if the last word before the period is a single letter (person) or multiple letters (organization)
+				const isOrganization = authors.match(/\b[A-Za-z]{2,}\.$/); // Matches words with 2+ letters ending with a period
+				if (isOrganization) {
+					// Remove the trailing period for organizations
+					authors = authors.replace(/\.$/, '');
+				}
+
+				extractedData.authors = authors;
+				console.log("Extracted authors:", extractedData.authors); // Debug log
+			}
+
+			// Extract year of publication (inside parentheses)
+			const yearMatch = pText.match(/\((\d{4}|n\.d\.)(?:,\s*\w+(?:\s+\d+)?)?\)/);
+			if (yearMatch) {
+				extractedData.yearOfPublication = yearMatch[1].trim(); // Extract only the year or "n.d."
+			}
+			
+			// Extract month of publication (inside parentheses, after the year)
+			const monthMatch = pText.match(/\(\d{4}(?:, (\w+)(?: \d+)?)?\)/);
+			if (monthMatch && monthMatch[1]) {
+				extractedData.journalMonth = monthMatch[1].trim(); // Extract only the month or season
+			} else {
+				extractedData.journalMonth = "n/a"; // Default if no month/season found
+			}
+
+			// Extract reading source, volume and issue numbers (journal/book/website title from <em>)
+			const emElement = pElement.querySelector("em");
+			if (emElement) {
+				let italicizedText = emElement.textContent.trim();
+				console.log("Extracted italicizedText (before trimming volume):", italicizedText); // Debug log
+
+				// Extract volume number (comma followed by numbers)
+				const volumeMatch = italicizedText.match(/,\s*(\d+)$/); // Match volume number
+				if (volumeMatch) {
+					extractedData.journalVolume = volumeMatch[1];
+					console.log("Extracted journalVolume:", extractedData.journalVolume); // Debug log
+
+					// Extract issue number directly from the HTML content
+					const htmlAfterEm = pElement.innerHTML.split('</em>')[1]; // Get content after </em>
+					if (htmlAfterEm) {
+						const issueMatch = htmlAfterEm.match(/^\s*\(([^)]+)\)/); // Match issue number in parentheses
+						if (issueMatch) {
+							extractedData.journalIssue = issueMatch[1].trim(); // Assign issue number
+							console.log("Extracted journalIssue:", extractedData.journalIssue); // Debug log
+						} else {
+							extractedData.journalIssue = "n/a"; // Default to n/a if no issue number found
+							console.log("No issue number found after volume.");
+						}
+					} else {
+						extractedData.journalIssue = "n/a";
+						console.warn("No content found after </em> in innerHTML.");
+					}
+
+					// Remove the volume from italicizedText after extracting issue
+					italicizedText = italicizedText.replace(/,\s*\d+$/, '').trim();
+				}
+				console.log("Italicized text (after removing volume):", italicizedText); // Debug log
+
+				// Check if the <em> tag is part of a hyperlink
+				if (emElement.closest('a')) {
+					// Extract the remaining text after the italicized text
+					const indexAfterItalicized = pText.indexOf(italicizedText) + italicizedText.length;
+					let remainingText = pText.slice(indexAfterItalicized).trim();
+					console.log("Debug: remainingText before URL check:", remainingText); // Debug log
+
+					// Clean leading punctuation and spaces
+					remainingText = remainingText.replace(/^[.\s!?]+/, '').trim();
+					console.log("Debug: Cleaned remainingText for URL check:", remainingText); // Debug log
+
+					// Check if remaining text starts with a URL
+					if (/^https?:\/\//.test(remainingText)) {
+						console.log("Debug: Detected URL in remainingText:", remainingText); // Debug log
+						extractedData.journalOrBookTitle = extractedData.authors;
+						console.log("Remaining text starts with URL. Using authors as journalOrBookTitle:", extractedData.journalOrBookTitle); // Debug log
+					} else {
+						// Skip leading non-text characters
+						const match = remainingText.match(/^[^.\n!?]+(?=[.!\n])/); // Capture up to the first valid delimiter
+						if (match) {
+							extractedData.journalOrBookTitle = match[0].trim(); // Assign the captured text
+							console.log("Captured journalOrBookTitle:", extractedData.journalOrBookTitle); // Debug log
+						} else {
+							console.warn("Could not find a valid journal/book title for entry:", pText.slice(0, 50));
+						}
+					}
+				} else {
+					// Otherwise, use the italicized text as the journal/book title
+					extractedData.journalOrBookTitle = italicizedText;
+				}
+			} else {
+				console.warn("No <em> element found for journal/book title extraction in entry:", pText.slice(0, 50));
+			}
+			
+			// Extract book publisher
+			const emElementForPublisher = pElement.querySelector("em"); // Find the <em> element
+			if (emElementForPublisher) {
+				// Get the text following the <em> element
+				const htmlAfterEm = pElement.innerHTML.split(emElementForPublisher.outerHTML)[1];
+				console.log("Debug: htmlAfterEm content:", htmlAfterEm); // Debug log
+
+				if (htmlAfterEm) {
+					// Match the publisher name after the closing parenthesis
+					const publisherMatch = htmlAfterEm.match(/\)\.\s*([A-Za-z &\-']+)\./);
+					if (publisherMatch) {
+						extractedData.bookPublisher = publisherMatch[1].trim();
+						console.log("Extracted bookPublisher:", extractedData.bookPublisher); // Debug log
+					} else {
+						extractedData.bookPublisher = "n/a"; // Default if no publisher found
+						console.log("No publisher found for this entry.");
+					}
+				} else {
+					extractedData.bookPublisher = "n/a";
+					console.warn("No content found after <em> in innerHTML.");
+				}
+			} else {
+				extractedData.bookPublisher = "n/a"; // Default if no <em> tag
+				console.warn("No <em> element found for book title.");
+			}
+
+
+			// Extract page numbers
+			let pagesMatch = pText.match(/pp\.\s(\d+[-–]\d+)/);
+			if (pagesMatch) {
+				extractedData.inclusivePages = pagesMatch[1].trim(); // Extract only the page range without "pp."
+				console.log("Extracted inclusivePages:", extractedData.inclusivePages); // Debug log
+			} else {
+				// Intermediary step: Look for standalone page ranges (e.g., "132–147")
+				const issueNumber = extractedData.journalIssue; // Retrieve the issue number for comparison
+				pagesMatch = pText.match(/\b(\d+[-–]\d+)\b/g); // Match all standalone ranges in the text
+
+				if (pagesMatch) {
+					// Find the first page range that doesn't match the issue number
+					const validPageRange = pagesMatch.find(range => range !== issueNumber);
+					if (validPageRange) {
+						extractedData.inclusivePages = validPageRange.trim();
+						console.log("Extracted inclusivePages from standalone range:", extractedData.inclusivePages); // Debug log
+					} else {
+						extractedData.inclusivePages = "n/a"; // Default if no valid page range found
+						console.log("No valid standalone page range found.");
+					}
+				} else {
+					// Secondary check for "(xx pages)" or "(1 page)"
+					const pageCountMatch = pText.match(/\((\d+)\s+pages?\)/);
+					if (pageCountMatch) {
+						const pageCount = pageCountMatch[1]; // Extract the number of pages
+						extractedData.inclusivePages = `1-${pageCount}`; // Assign "1-xx" as the range
+						console.log("Derived inclusivePages from page count:", extractedData.inclusivePages); // Debug log
+					} else {
+						extractedData.inclusivePages = "n/a"; // Default if no page information found
+						console.log("No page numbers or page count found for this entry.");
+					}
+				}
+			}
+
+
+			// Extract primary URL (href from <a>)
+			const linkElement = pElement.querySelector("a");
+			if (linkElement) {
+				extractedData.primaryUrl = linkElement.href;
+			}
+		} else {
+			console.warn("No pElement found.");
+		}
+
+		return extractedData;
+	}
+
+	// Function to process all <h4> and <p> pairs
+	function parseAllAPAReferences() {
+		const results = []; // Array to store all extracted data
+		const h4Elements = document.querySelectorAll("#renderedOutput h4"); // Select all <h4> elements
+		console.log("Found <h4> elements:", h4Elements);
+		console.log("Number of <h4> elements:", h4Elements.length);
+		
+		h4Elements.forEach(h4Element => {
+
+			// Start with the first sibling
+			let sibling = h4Element.nextElementSibling;
+
+			// Iterate through all sibling <p> elements until the next <h4> or heading
+			while (sibling && sibling.tagName.toLowerCase() !== "h4") {
+				if (sibling.tagName.toLowerCase() === "p") {
+					const parsedData = parseAPAReference(h4Element, sibling); // Parse each <p>
+					results.push(parsedData); // Add to results
+				}
+				sibling = sibling.nextElementSibling; // Move to the next sibling
+			}
+		});
+
+		return results;
+	}
+	
+	function renderTable(parsedData) {
+		// Get the container where the table will be rendered
+		const outputContainer = document.getElementById('tableOutput');
+
+		// Clear any existing content in the container
+		outputContainer.innerHTML = '';
+
+		// Create the table element
+		const table = document.createElement('table');
+		table.style.width = '100%';
+		table.style.borderCollapse = 'collapse';
+
+		// Create the table header row
+		const headers = [
+			'Journal/Book Title (Begin with module number)',
+			'Journal Volume #',
+			'Journal Issue #',
+			'Journal Month of Publication',
+			'Journal/Book Year of Publication',
+			'Book Publisher',
+			'Article/Chapter Title',
+			'Author (Last Name, First Name)',
+			'Inclusive Pages',
+			'ISSN/ISBN',
+			'USC has PDF',
+			'Primary URL (USC library or online article website)',
+			'Secondary URL (if available or needed)'
+			
+		];
+
+		const thead = document.createElement('thead');
+		const headerRow = document.createElement('tr');
+		headers.forEach(headerText => {
+			const th = document.createElement('th');
+			th.textContent = headerText;
+			th.style.border = '1px solid black';
+			th.style.padding = '8px';
+			headerRow.appendChild(th);
+		});
+		thead.appendChild(headerRow);
+		table.appendChild(thead);
+
+		// Create the table body
+		const tbody = document.createElement('tbody');
+		parsedData.forEach(rowData => {
+			const row = document.createElement('tr');
+
+			// Combine weekCategory and journalOrBookTitle into one column
+			const weekJournalCell = document.createElement('td');
+			const weekCategoryArray = rowData.weekCategory.split(' '); // Split into an array
+			const weekJournalValue = weekCategoryArray[0] + " " + weekCategoryArray[1] + " - " + rowData.journalOrBookTitle;
+			weekJournalCell.textContent = weekJournalValue;
+			weekJournalCell.style.border = '1px solid black';
+			weekJournalCell.style.padding = '8px';
+			row.appendChild(weekJournalCell);
+
+			// Add the rest of the columns
+			const otherColumns = [
+				rowData.journalVolume,
+				rowData.journalIssue,
+				rowData.journalMonth,
+				rowData.yearOfPublication,
+				rowData.bookPublisher,
+				rowData.articleChapterTitle,
+				rowData.authors,
+				rowData.inclusivePages,
+				rowData.issnIsbn,
+				rowData.uscHasPdf,
+				rowData.primaryUrl,
+				rowData.secondaryUrl
+				
+			];
+
+			otherColumns.forEach(cellData => {
+				const td = document.createElement('td');
+				td.textContent = cellData;
+				td.style.border = '1px solid black';
+				td.style.padding = '8px';
+				row.appendChild(td);
+			});
+
+			tbody.appendChild(row);
+		});
+		table.appendChild(tbody);
+
+		// Append the table to the container
+		outputContainer.appendChild(table);
+		
+		// Create and append the "Copy Table" button
+		const copyButton = document.createElement('button');
+		copyButton.textContent = 'Copy Table';
+		copyButton.style.marginTop = '10px';
+		copyButton.addEventListener('click', () => copyTableToClipboard(table));
+		outputContainer.appendChild(copyButton);
+	}
+	
+	function copyTableToClipboard(table) {
+		// Extract table rows excluding the header
+		const rows = Array.from(table.querySelectorAll('tbody tr'));
+		const tableText = rows.map(row => {
+			return Array.from(row.children).map(cell => cell.textContent.trim()).join('\t');
+		}).join('\n');
+
+		// Use the Clipboard API to copy the text
+		navigator.clipboard.writeText(tableText)
+			.then(() => {
+				alert('Table copied to clipboard!');
+			})
+			.catch(err => {
+				console.error('Failed to copy table:', err);
+			});
+	}
+	
+	// Call parseAllAPAReferences
+	const allParsedData = parseAllAPAReferences(transformedHtmlState); // Use transformed content
+	console.log("All Extracted Data:", allParsedData);
+	
+	// Call renderTable to display the table in the output container
+	renderTable(allParsedData);
+	
+	//Define transformations
+	const transformations = {
+        	
+		wrapItalicSpansWithEm(html) {
+			// Parse the HTML string to a DOM object
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Find all span elements
+			const spanElements = doc.querySelectorAll('span');
+
+			// Loop through each span and check for 'font-style: italic'
+			spanElements.forEach(span => {
+				const style = span.getAttribute('style');
+
+				if (style && style.includes('font-style: italic')) {
+					// Wrap the contents of the span in <em>
+					const em = document.createElement('em');
+					while (span.firstChild) {
+						em.appendChild(span.firstChild);
+					}
+					span.parentNode.replaceChild(em, span);
+				}
+			});
+
+			return doc.body.innerHTML;
+		},
+		
+		stripSpans(html){
+			//Parse the HTML string to a DOM object
+			const parser = new DOMParser();
+		   	const doc = parser.parseFromString(html, 'text/html');
+			
+			//Find all span elements
+			const spanElements = doc.querySelectorAll('span');
+			
+			// Loop through each span and replace it with its content
+		     spanElements.forEach(span => {
+			    const parent = span.parentNode;
+			    while (span.firstChild) {
+				   parent.insertBefore(span.firstChild, span);
+			    }
+			    parent.removeChild(span);
+		     });
+			return doc.body.innerHTML;
+		},
+		
+		stripStyleAttributes(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Find all elements with a style attribute
+			const elementsWithStyle = doc.querySelectorAll('[style]');
+
+			// Loop through each element and remove its style attribute
+			elementsWithStyle.forEach(element => {
+				element.removeAttribute('style');
+			});
+
+			return doc.body.innerHTML;
+		},
+		
+		stripDirLtr(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Find all elements with a direction attribute
+			const elementsWithDirection = doc.querySelectorAll('[dir]');
+
+			// Loop through each element and remove its direction attribute
+			elementsWithDirection.forEach(element => {
+				element.removeAttribute('dir');
+			});
+
+			return doc.body.innerHTML;
+		},
+
+		removeListWithLevel2(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			//Find all list elements with aria-level 2 or 3
+			const listsWithSubLists = doc.querySelectorAll('li[aria-level="2"], li[aria-level="3"]');
+
+			//Remove these lists from the DOM
+			listsWithSubLists.forEach(li => li.remove());
+
+			return doc.body.innerHTML;
+		},
+
+		removeAllLists(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			//Find all remaining lists
+			const remainingLists = doc.querySelectorAll('ul, ol');
+
+
+			// Loop through each list and replace it with its content
+			remainingLists.forEach(list => {
+				while (list.firstChild) {
+				   list.parentNode.insertBefore(list.firstChild, list);
+				}
+				list.remove();
+			 });
+			return doc.body.innerHTML;
+		},
+
+		removeListItemsKeepContent(html) {
+			// Parse the HTML string to a DOM object
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Find all <li> elements
+			const listItems = doc.querySelectorAll('li');
+
+			// Iterate over each <li> element
+			listItems.forEach(li => {
+				// Move each child of the <li> (e.g., <p>) to the parent of the <li>
+				while (li.firstChild) {
+					li.parentNode.insertBefore(li.firstChild, li);
+				}
+				// Remove the empty <li>
+				li.remove();
+			});
+
+			// Return the transformed HTML as a string
+			return doc.body.innerHTML;
+		},
+
+		keepReadingsSections(html, includeMultimedia = false) {
+			// Parse the HTML string to a DOM object
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, 'text/html');
+
+			// Find all headings (h1 to h6)
+			const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+
+			// Create an array to store relevant nodes
+			const relevantContent = [];
+
+			// Regex to match "Week X (Optional or Required) Readings" or Multimedia based on includeMultimedia
+			const readingsRegex = includeMultimedia
+				? /^week \d+ (required|optional|recommended)? (read(ings?)|multimedia) \(.*\)$/i
+				: /^week \d+ (required|optional|recommended)? read(ings?) \(.*\)$/i;
+
+			// Log all headings for debugging
+			//console.log('Found headings:', Array.from(headings).map(h => h.textContent.trim()));
+
+			// Iterate over each heading to find matches
+			headings.forEach(heading => {
+				const text = heading.textContent.toLowerCase().trim();
+				if (readingsRegex.test(text)) {
+					console.log('Matched heading:', heading.textContent);
+
+					// Add the matching heading
+					relevantContent.push(heading);
+
+					// Add all siblings until the next heading
+					let sibling = heading.nextElementSibling;
+					while (sibling && !/^H[1-6]$/i.test(sibling.tagName)) {
+						relevantContent.push(sibling);
+						sibling = sibling.nextElementSibling;
+					}
+				}
+			});
+
+			// If no matches are found, log a warning
+			if (relevantContent.length === 0) {
+				console.warn('No matching sections found. Returning original HTML.');
+				return html;
+			}
+
+			// Remove all other content from the document
+			Array.from(doc.body.children).forEach(child => {
+				if (!relevantContent.includes(child)) {
+					child.remove();
+				}
+			});
+
+			// Return the cleaned-up HTML
+			return doc.body.innerHTML;
+		},
+		
+		attachChapterNotationToLink(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, "text/html");
+
+			// Find all <p> elements
+			const paragraphs = doc.querySelectorAll("p");
+
+			paragraphs.forEach(paragraph => {
+				// Match chapter/section/part notation at the start of the text
+				const chapterMatch = paragraph.textContent.match(/^(Chapter|Section|Part|Unit) \d+:/i);
+
+				if (chapterMatch) {
+					// Extract the chapter notation
+					const chapterNotation = chapterMatch[0]; // e.g., "Chapter 15:"
+
+					// Find the hyperlink in the <p> (assume it represents the title)
+					const linkElement = paragraph.querySelector("a");
+
+					if (linkElement) {
+						// Add the chapter notation to the hyperlink text
+						linkElement.textContent = chapterNotation + " " + linkElement.textContent.trim();
+
+						// Remove the chapter notation from the rest of the paragraph text
+						paragraph.innerHTML = paragraph.innerHTML.replace(chapterNotation, "").trim();
+					}
+				}
+			});
+
+			return doc.body.innerHTML;
+		},
+
+		correctItalicizedPunctuation(html) {
+			// Use a regular expression to match the problematic sequences
+			return html
+				// Handle the case for </em>, <em>
+				.replace(/<\/em>\s*,\s*<em>/g, ', ')
+				// Handle the case for </em>. <em>
+				.replace(/<\/em>\s*\.\s*<em>/g, '. ')
+				// Handle the case for <em>.</em> or <em>, </em>
+            	.replace(/<em>\s*([.,])\s*<\/em>/g, '$1 ');
+		},
+	};
+	
+	
+	
+</script>
+</body>
+</html>
