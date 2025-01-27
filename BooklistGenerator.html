@@ -84,14 +84,15 @@ textarea {
 		<div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
 	</div>
 </div>
-<div>
+<div> 
+	<!--	<button id="listButton">Generate Readings and Multimedia List</button>-->
 	<button id="booklistButton">Generate Booklist</button>
 	<button id="syllabusButton">Generate Syllabus</button>
 </div>
 <div class="flex-container">
 	<div id="booklistOutput" style="display: none;" class="output-area">Code Output</div>
 	<div id="renderedOutput" class="rendered-content"><strong>Visual Output</strong></div>
-	<div id="tableOutput" class="rendered-table"><strong>Table Output</strong></div>
+	<div id="tableOutput" style="display: none;" class="rendered-table"><strong>Table Output</strong></div>
 	<div id="syllabusOutput" class="output-area"><strong>Syllabus Output</strong></div>
 </div>
 <script>
@@ -99,6 +100,7 @@ textarea {
     let transformedHtmlState = ""; // Global variable to store the transformed HTML reading list
 	
 	// Add the button click event listener
+	//document.getElementById('listButton').addEventListener('click', generateList);
 	document.getElementById('booklistButton').addEventListener('click', generateBooklist);
 	document.getElementById('syllabusButton').addEventListener('click', generateSyllabus);
 	
@@ -106,15 +108,17 @@ textarea {
 	function generateBooklist() {
 	    var inputContent = document.getElementById('input').innerHTML;
 	    
-	    // Clean up and transform HTML
+	    // Clean up and transform HTML, exclude multimedia
 	    var transformedContent = applyTransformations(inputContent, transformations);
+		var booklistContent = transformations.keepReadingsSections(transformedContent, false);
+		console.log("Filtered Booklist Content (no multimedia):", booklistContent);
 	    
 		// Store the transformed content in the global variable - this is the linear booklist
     	transformedHtmlState = transformedContent;
 		console.log("HTML after applying transformations:", transformedHtmlState);
 		
 		// Output the final HTML to the textarea and rendered div
-	    document.getElementById('booklistOutput').textContent = transformedContent;
+	    document.getElementById('booklistOutput').textContent = booklistContent;
 	    document.getElementById('renderedOutput').innerHTML = transformedContent;
 		
 		// Log a message indicating that the state is stored
@@ -123,50 +127,132 @@ textarea {
 		// Call the parsing function AFTER the content is added to the DOM
 		console.log("Parsing dynamically added content...");
 		setTimeout(() => {
-			const allParsedData = parseAllAPAReferences(transformedContent);
+			const allParsedData = parseAllAPAReferences(booklistContent);
 			console.log("All Extracted Data:", allParsedData);
 			renderTable(allParsedData);
 		}, 0);
 	}
+		
+	//Helper function for the syllabus generator; isolates the authors
+	function parseAPAAuthors(authorString) {
+	  	// 1. Remove trailing punctuation/spaces
+	  	let str = authorString.trim().replace(/[.\s]+$/, ""); 
+	  	// 2. Remove parenthetical year from the string if present:
+	  	str = str.replace(/\s*\(\d{4}.*$/, "");
+		// 3. Replace " & " with a comma:
+		str = str.replace(/\s*&\s*/g, ", ");
+		// 4. Clean up any double commas:
+		str = str.replace(/,\s*,/g, ", ");
+		// 5. Split on commas
+	  const parts = str.split(",").map((p) => p.trim()).filter(Boolean);
+
+	  // 6. Group every 2 parts = one author. e.g.: ["Nawaz, M. A.","Hassan, S."]
+	  const authorChunks = [];
+	  for (let i = 0; i < parts.length; i += 2) {
+		const lastName = parts[i] || "";
+		const initials = parts[i + 1] || "";
+		const combined = `${lastName}, ${initials}`.trim();
+		authorChunks.push(combined);
+	  }	
+
+	  // 7. Extract just the last name from each chunk
+	  return authorChunks.map((chunk) => chunk.split(",")[0].trim());
+	}
+
+	//Helper function to group syllabus entries by week
+	function groupByFullHeading(parsedData) {
+	  const groups = {};
+
+	  parsedData.forEach(item => {
+		const heading = item.fullHeading || "No Heading";
+		if (!groups[heading]) {
+		  groups[heading] = [];
+		}
+		groups[heading].push(item);
+	  });
+
+	  return groups;
+	}
+	
+	//Helper function for syllabus generator; formats the author per requirements
+	function formatAuthorsForSyllabus(authorsString, year) {
+		// Step A: parse out last names
+		const lastNames = parseAPAAuthors(authorsString);
+
+		// Step B: check how many last names
+		if (lastNames.length === 1) {
+		// Single author or corporate
+		return `${lastNames[0]} (${year})`;
+		} 
+		else if (lastNames.length === 2) {
+		// Two authors => "Lastname1 & Lastname2"
+		return `${lastNames[0]} & ${lastNames[1]} (${year})`;
+		} 
+		else {
+		// 3+ authors => "Lastname1 et al."
+		return `${lastNames[0]} et al. (${year})`;
+		}
+	}
 	
 	//Function to generate the syllabus
 	function generateSyllabus() {
-	    var inputContent = document.getElementById('input').innerHTML;
-	    
-	    // Step 1: Clean up and transform HTML (include multimedia in filtering)
-	    var transformedContent = applyTransformations(inputContent, transformations);
-	    var syllabusContent = transformations.keepReadingsSections(transformedContent, true);
-		console.log("Filtered Syllabus Content:", syllabusContent);
-	
-	    // Step 2: Parse APA references from the transformed content
-	    const allParsedData = parseAllAPAReferences(syllabusContent);
-	    console.log("Parsed APA Data for Syllabus:", allParsedData);
-	
-	    // Step 3: Create syllabus-specific content using parsed data
-	    const syllabusEntries = allParsedData.map(data => {
-	        return `
-	            <div class="syllabus-entry">
-	                <h3>${data.weekCategory}</h3>
-	                <p>
-	                    <strong>Authors:</strong> ${data.authors}<br>
-	                    <strong>Year:</strong> ${data.yearOfPublication}<br>
-	                    <strong>Title:</strong> ${data.articleChapterTitle}<br>
-	                    <strong>Source:</strong> ${data.journalOrBookTitle}<br>
-	                    <strong>URL:</strong> <a href="${data.primaryUrl}" target="_blank">${data.primaryUrl}</a>
-	                </p>
-	            </div>
-	        `;
-	    }).join("");
-	
-	    // Step 4: Output the syllabus content
-	    const syllabusOutput = document.getElementById('syllabusOutput');
-	    if (!syllabusOutput) {
-	        console.error("No output container found for syllabus.");
-	        return;
-	    }
-	    syllabusOutput.innerHTML = syllabusEntries;
-	
-	    console.log("Syllabus successfully generated.");
+		var inputContent = document.getElementById('input').innerHTML;
+
+		// Step 1: Clean up and transform HTML, include multimedia
+		var transformedContent = applyTransformations(inputContent, transformations);
+		var syllabusContent = transformations.keepReadingsSections(transformedContent, true); // Include multimedia
+		console.log("Filtered Syllabus Content (with multimedia):", syllabusContent);
+
+		// Step 2: Parse APA references from the transformed content
+		const allParsedData = parseAllAPAReferences(syllabusContent);
+		console.log("Parsed APA Data for Syllabus:", allParsedData);
+
+		// Step 3: Group them by `fullHeading`
+		const grouped = groupByFullHeading(allParsedData);
+
+		// Step 3a: Now build ONE big HTML string, with one <h3> per heading:
+		const syllabusEntries = Object.keys(grouped).map(heading => {
+		  // heading might be "Week 1 Required Readings" or "Week 1 Multimedia"
+		  const references = grouped[heading];
+
+		  // Start with a single <h3> for this heading
+		  let headingBlock = `<div class="syllabus-group"><h3>${heading}</h3>\n`;
+
+		  // Then add each reference under this heading
+		  references.forEach(data => {
+			// 1) Format "Author (Year)"
+			const formattedAuthorDate = formatAuthorsForSyllabus(data.authors, data.yearOfPublication);
+
+			// 2) Append chapter info if present
+			let displayLine = formattedAuthorDate;
+			if (data.chapterInfo) {
+			  // For example: "Smith (2020), Chapter 2"
+			  displayLine += `, ${data.chapterInfo}`;
+			}
+
+			headingBlock += `
+			  <p>
+				${displayLine}
+			  </p>
+			`;
+		  });
+
+		  headingBlock += `</div>`; // close the group div
+		  return headingBlock;
+		}).join("\n");
+
+		
+
+		// Step 4: Output the syllabus content
+		const syllabusOutput = document.getElementById('syllabusOutput');
+		document.getElementById('renderedOutput').innerHTML = transformedContent;
+		if (!syllabusOutput) {
+			console.error("No output container found for syllabus.");
+			return;
+		}
+		syllabusOutput.innerHTML = syllabusEntries;
+
+		console.log("Syllabus successfully generated.");
 	}
 	
 	// Function to apply transformations in sequence
@@ -197,6 +283,7 @@ textarea {
 			yearOfPublication: "n.d.", // Year of publication
 			bookPublisher: "n/a", // Publisher
 			articleChapterTitle: "n/a", // Article or chapter title
+			chapterInfo: "n/a", // Chapter info for the syllabus
 			authors: "n/a", // Authors
 			inclusivePages: "n/a", // Pages
 			issnIsbn: "n/a", // ISSN/ISBN
@@ -218,6 +305,14 @@ textarea {
 		if (pElement) {
 			//console.log("pElement:", pElement.outerHTML);
 			const pText = pElement.textContent.trim();
+			const chapterMatch = pText.match(/(Chapter|Section|Part|Unit)\s+\d+:/i);
+			if (chapterMatch) {
+			  // e.g. "Chapter 5:"
+			  // Remove the trailing colon so you can display "Chapter 5" later
+			  extractedData.chapterInfo = chapterMatch[0].replace(":", "").trim();
+			} else {
+			  extractedData.chapterInfo = ""; // default empty if no match
+			}
 			console.log("pText:", pText);
 
 			// Extract the article/chapter title from the hyperlink
@@ -400,13 +495,26 @@ textarea {
 	}
 
 	// Function to process all <h4> and <p> pairs
-	function parseAllAPAReferences() {
+	function parseAllAPAReferences(htmlString) {
 		const results = []; // Array to store all extracted data
-		const h4Elements = document.querySelectorAll("#renderedOutput h4"); // Select all <h4> elements
-		console.log("Found <h4> elements:", h4Elements);
-		console.log("Number of <h4> elements:", h4Elements.length);
-		
+		const parser = new DOMParser();
+  		const doc = parser.parseFromString(htmlString, 'text/html');
+		const h4Elements = doc.querySelectorAll('h4'); // Select all <h4> elements
 		h4Elements.forEach(h4Element => {
+			// Extract only "Week X" from the heading
+			const weekMatch = h4Element.textContent.match(/week \d+/i);
+			let weekCategory = weekMatch ? weekMatch[0] : "n/a";
+
+			// Determine if the heading indicates "Recommended" or "Optional"
+			const isRecommended = /recommended/i.test(h4Element.textContent);
+			const isOptional = /optional/i.test(h4Element.textContent);
+
+			// Append "(recommended)" or "(optional)" to the weekCategory if applicable
+			if (isRecommended) {
+				weekCategory += " (recommended)";
+			} else if (isOptional) {
+				weekCategory += " (optional)";
+			}
 
 			// Start with the first sibling
 			let sibling = h4Element.nextElementSibling;
@@ -415,6 +523,9 @@ textarea {
 			while (sibling && sibling.tagName.toLowerCase() !== "h4") {
 				if (sibling.tagName.toLowerCase() === "p") {
 					const parsedData = parseAPAReference(h4Element, sibling); // Parse each <p>
+					// Use the truncated weekCategory
+					parsedData.weekCategory = weekCategory;
+					parsedData.fullHeading = h4Element.textContent.trim();
 					results.push(parsedData); // Add to results
 				}
 				sibling = sibling.nextElementSibling; // Move to the next sibling
@@ -425,18 +536,22 @@ textarea {
 	}
 	
 	function renderTable(parsedData) {
-		// Get the container where the table will be rendered
 		const outputContainer = document.getElementById('tableOutput');
-
-		// Clear any existing content in the container
 		outputContainer.innerHTML = '';
 
-		// Create the table element
+		// Create and append the "Copy Table" button
+		const copyButton = document.createElement('button');
+		copyButton.textContent = 'Copy Table';
+		copyButton.style.marginBottom = '10px';
+		copyButton.addEventListener('click', () => copyTableToClipboard(table));
+		outputContainer.appendChild(copyButton);
+
+		// Create the table
 		const table = document.createElement('table');
 		table.style.width = '100%';
 		table.style.borderCollapse = 'collapse';
 
-		// Create the table header row
+		// Add table headers
 		const headers = [
 			'Journal/Book Title (Begin with module number)',
 			'Journal Volume #',
@@ -451,7 +566,6 @@ textarea {
 			'USC has PDF',
 			'Primary URL (USC library or online article website)',
 			'Secondary URL (if available or needed)'
-			
 		];
 
 		const thead = document.createElement('thead');
@@ -466,15 +580,14 @@ textarea {
 		thead.appendChild(headerRow);
 		table.appendChild(thead);
 
-		// Create the table body
+		// Populate the table body
 		const tbody = document.createElement('tbody');
 		parsedData.forEach(rowData => {
 			const row = document.createElement('tr');
 
 			// Combine weekCategory and journalOrBookTitle into one column
 			const weekJournalCell = document.createElement('td');
-			const weekCategoryArray = rowData.weekCategory.split(' '); // Split into an array
-			const weekJournalValue = weekCategoryArray[0] + " " + weekCategoryArray[1] + " - " + rowData.journalOrBookTitle;
+			const weekJournalValue = `${rowData.weekCategory} - ${rowData.journalOrBookTitle}`;
 			weekJournalCell.textContent = weekJournalValue;
 			weekJournalCell.style.border = '1px solid black';
 			weekJournalCell.style.padding = '8px';
@@ -494,7 +607,6 @@ textarea {
 				rowData.uscHasPdf,
 				rowData.primaryUrl,
 				rowData.secondaryUrl
-				
 			];
 
 			otherColumns.forEach(cellData => {
@@ -511,13 +623,6 @@ textarea {
 
 		// Append the table to the container
 		outputContainer.appendChild(table);
-		
-		// Create and append the "Copy Table" button
-		const copyButton = document.createElement('button');
-		copyButton.textContent = 'Copy Table';
-		copyButton.style.marginTop = '10px';
-		copyButton.addEventListener('click', () => copyTableToClipboard(table));
-		outputContainer.appendChild(copyButton);
 	}
 	
 	function copyTableToClipboard(table) {
@@ -537,12 +642,6 @@ textarea {
 			});
 	}
 	
-	// Call parseAllAPAReferences
-	const allParsedData = parseAllAPAReferences(transformedHtmlState); // Use transformed content
-	console.log("All Extracted Data:", allParsedData);
-	
-	// Call renderTable to display the table in the output container
-	renderTable(allParsedData);
 	
 	//Define transformations
 	const transformations = {
@@ -674,7 +773,7 @@ textarea {
 			return doc.body.innerHTML;
 		},
 
-		keepReadingsSections(html, includeMultimedia = false) {
+		keepReadingsSections(html, includeMultimedia = true) {
 			// Parse the HTML string to a DOM object
 			const parser = new DOMParser();
 			const doc = parser.parseFromString(html, 'text/html');
@@ -685,13 +784,13 @@ textarea {
 			// Create an array to store relevant nodes
 			const relevantContent = [];
 
-			// Regex to match "Week X (Optional or Required) Readings" or Multimedia based on includeMultimedia
+			// Regex to match "Week X Readings" or "Multimedia"
 			const readingsRegex = includeMultimedia
-				? /^week \d+ (required|optional|recommended)? (read(ings?)|multimedia) \(.*\)$/i
-				: /^week \d+ (required|optional|recommended)? read(ings?) \(.*\)$/i;
+				? /^week \d+.*(read(ings?)|multimedia).*$/i
+				: /^week \d+.*read(ings?).*$/i;
 
-			// Log all headings for debugging
-			//console.log('Found headings:', Array.from(headings).map(h => h.textContent.trim()));
+			console.log('Include Multimedia:', includeMultimedia);
+			console.log('Found headings:', Array.from(headings).map(h => h.textContent.trim()));
 
 			// Iterate over each heading to find matches
 			headings.forEach(heading => {
@@ -704,7 +803,7 @@ textarea {
 
 					// Add all siblings until the next heading
 					let sibling = heading.nextElementSibling;
-					while (sibling && !/^H[1-6]$/i.test(sibling.tagName)) {
+					while (sibling && !/^h[1-6]$/i.test(sibling.tagName)) {
 						relevantContent.push(sibling);
 						sibling = sibling.nextElementSibling;
 					}
@@ -727,7 +826,7 @@ textarea {
 			// Return the cleaned-up HTML
 			return doc.body.innerHTML;
 		},
-		
+
 		attachChapterNotationToLink(html) {
 			const parser = new DOMParser();
 			const doc = parser.parseFromString(html, "text/html");
@@ -769,6 +868,34 @@ textarea {
 				// Handle the case for <em>.</em> or <em>, </em>
             	.replace(/<em>\s*([.,])\s*<\/em>/g, '$1 ');
 		},
+		
+		removeEmptyElements(html, config) {
+		    const parser = new DOMParser();
+		    const doc = parser.parseFromString(html, 'text/html');
+
+		    // List of tags to check for emptiness
+		    const tagsToCheck = ['span', 'strong', 'em', 'div', 'p', 'li', 'a', 'h3'];
+
+		    // Iterate over each tag type
+		    tagsToCheck.forEach(tag => {
+			   doc.querySelectorAll(tag).forEach(element => {
+				  // Special case for <p> tags with &nbsp;
+				  if (tag === 'p') {
+					 if (element.innerHTML.trim() === '&nbsp;') {
+						return; // Preserve <p> tags containing only &nbsp;
+					 }
+				  }
+
+				  // Check if the element is not an iframe and is truly empty
+				  if (!element.textContent.trim() && !element.querySelector('iframe')) {
+					 element.remove();
+				  }
+			   });
+		    });
+
+		    return doc.body.innerHTML;
+        },
+		
 	};
 	
 	
