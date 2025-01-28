@@ -174,6 +174,57 @@ textarea {
 	  return groups;
 	}
 	
+	//Helper function to group syllabus chapters by author and year
+	function groupByAuthorYearWithinHeading(references) {
+	  const subgroups = {};
+
+	  references.forEach(ref => {
+		// e.g. "Hider, P." + "2018" => "Hider, P.|||2018" (any delimiter you like)
+		const key = `${ref.authors}|||${ref.yearOfPublication}`;
+
+		if (!subgroups[key]) {
+		  subgroups[key] = [];
+		}
+		subgroups[key].push(ref);
+	  });
+
+	  return subgroups;
+	}
+
+	//Helper function to merge syllabus chapters into ranges
+	function mergeChaptersIntoRanges(chapterNumbers) {
+	  // 1) Sort them => e.g. [6,7,8,10]
+	  chapterNumbers.sort((a,b) => a - b);
+
+	  let ranges = [];
+	  let start = chapterNumbers[0];
+	  let prev = start;
+
+	  // 2) Walk through
+	  for (let i = 1; i < chapterNumbers.length; i++) {
+		const current = chapterNumbers[i];
+		if (current === prev + 1) {
+		  // consecutive
+		  prev = current; // keep extending the range
+		} else {
+		  // break in the sequence
+		  ranges.push([start, prev]);
+		  start = current;
+		  prev = current;
+		}
+	  }
+	  // push final range
+	  ranges.push([start, prev]);
+
+	  // 3) Convert each [start, end] to "6–8" or "10"
+	  const rangeStrings = ranges.map(([s,e]) => {
+		return (s === e) ? String(s) : `${s}–${e}`;
+	  });
+
+	  // e.g. ["6–8", "10"] => "Chapters 6–8, 10"
+	  return `Chapters ${rangeStrings.join(", ")}`;
+	}
+	
 	//Helper function for syllabus generator; formats the author per requirements
 	function formatAuthorsForSyllabus(authorsString, year) {
 		// Step A: parse out last names
@@ -207,7 +258,7 @@ textarea {
 		const allParsedData = parseAllAPAReferences(syllabusContent);
 		console.log("Parsed APA Data for Syllabus:", allParsedData);
 
-		// Step 3: Group them by `fullHeading`
+		// Step 3: Group them by `fullHeading and author/year`
 		const grouped = groupByFullHeading(allParsedData);
 
 		// Step 3a: Now build ONE big HTML string, with one <h3> per heading:
@@ -215,33 +266,44 @@ textarea {
 		  // heading might be "Week 1 Required Readings" or "Week 1 Multimedia"
 		  const references = grouped[heading];
 
-		  // Start with a single <h3> for this heading
+		  // 1) Sub-group references by (authors + year)
+		  const subgroups = groupByAuthorYearWithinHeading(references);
+
+		  // 2) Start with a single <h3> for this heading
 		  let headingBlock = `<div class="syllabus-group"><h3>${heading}</h3>\n`;
 
-		  // Then add each reference under this heading
-		  references.forEach(data => {
-			// 1) Format "Author (Year)"
-			const formattedAuthorDate = formatAuthorsForSyllabus(data.authors, data.yearOfPublication);
+		  // 3) For each (authors+year) subgroup, gather and merge chapter numbers
+		  Object.keys(subgroups).forEach(key => {
+			// key looks like "Hider, P.|||2018"
+			const [authors, year] = key.split("|||");
+			const refArray = subgroups[key];
 
-			// 2) Append chapter info if present
-			let displayLine = formattedAuthorDate;
-			if (data.chapterInfo) {
-			  // For example: "Smith (2020), Chapter 2"
-			  displayLine += `, ${data.chapterInfo}`;
+			// Format "Hider (2018)" using your existing function
+			const displayAuthorYear = formatAuthorsForSyllabus(authors, year);
+
+			// Collect all numeric chapterNumbers (ignore null or non-numeric)
+			const allChapters = refArray
+			  .map(r => r.chapterNumber)
+			  .filter(num => num && !isNaN(num));
+
+			let line;
+			if (allChapters.length === 0) {
+			  // no chapter => just "Hider (2018)"
+			  line = displayAuthorYear;
+			} else if (allChapters.length === 1) {
+			  // single => "Hider (2018), Chapter 6"
+			  line = `${displayAuthorYear}, Chapter ${allChapters[0]}`;
+			} else {
+			  // multiple => "Hider (2018), Chapters 6–8, 10"
+			  line = `${displayAuthorYear}, ${mergeChaptersIntoRanges(allChapters)}`;
 			}
 
-			headingBlock += `
-			  <p>
-				${displayLine}
-			  </p>
-			`;
+			headingBlock += `<p>${line}</p>`;
 		  });
 
 		  headingBlock += `</div>`; // close the group div
 		  return headingBlock;
 		}).join("\n");
-
-		
 
 		// Step 4: Output the syllabus content
 		const syllabusOutput = document.getElementById('syllabusOutput');
@@ -307,13 +369,24 @@ textarea {
 			const pText = pElement.textContent.trim();
 			const chapterMatch = pText.match(/(Chapter|Section|Part|Unit)\s+\d+:/i);
 			if (chapterMatch) {
-			  // e.g. "Chapter 5:"
-			  // Remove the trailing colon so you can display "Chapter 5" later
-			  extractedData.chapterInfo = chapterMatch[0].replace(":", "").trim();
+				// e.g. "Chapter 5:"
+				// Remove the trailing colon so you can display "Chapter 5" later
+				extractedData.chapterInfo = chapterMatch[0].replace(":", "").trim();
+				// Attempt to parse the number from "Chapter 6"
+				const numberMatch = extractedData.chapterInfo.match(/\d+/);
+				if (numberMatch) {
+					extractedData.chapterNumber = parseInt(numberMatch[0], 10);
+					console.log("Chapter Number:",numberMatch);
+				} else {
+					extractedData.chapterNumber = null; // or 0
+				}
+	
 			} else {
 			  extractedData.chapterInfo = ""; // default empty if no match
 			}
+			
 			console.log("pText:", pText);
+			
 
 			// Extract the article/chapter title from the hyperlink
 			const titleLinkElement = pElement.querySelector("a");
@@ -894,6 +967,25 @@ textarea {
 		    });
 
 		    return doc.body.innerHTML;
+        },
+		
+		stripAsteriskNoteParagraphs(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const pattern = /^\s*\*+\s*note\s*:?/i;
+            
+            // Find all <p> elements
+            const paragraphs = doc.querySelectorAll('p');
+            
+            paragraphs.forEach(p => {
+                const text = p.textContent.trim();
+                if (pattern.test(text)) {
+                    // Remove the whole paragraph if it matches
+                    p.remove();
+                }
+            });
+            
+            return doc.body.innerHTML;
         },
 		
 	};
