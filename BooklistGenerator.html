@@ -85,26 +85,80 @@ textarea {
 	</div>
 </div>
 <div> 
-	<!--	<button id="listButton">Generate Readings and Multimedia List</button>-->
+	<button id="listButton">Show Readings and Multimedia List</button>
 	<button id="booklistButton">Generate Booklist</button>
 	<button id="syllabusButton">Generate Syllabus</button>
 </div>
 <div class="flex-container">
 	<div id="booklistOutput" style="display: none;" class="output-area">Code Output</div>
-	<div id="renderedOutput" class="rendered-content"><strong>Visual Output</strong></div>
+	<div id="renderedOutput" style="display: none;" class="rendered-content"><strong>List-Based Output</strong></div>
 	<div id="tableOutput" style="display: none;" class="rendered-table"><strong>Table Output</strong></div>
-	<div id="syllabusOutput" class="output-area"><strong>Syllabus Output</strong></div>
+	<div id="syllabusOutput" style="display: none;" class="output-area"><strong>Syllabus Output</strong></div>
 </div>
 <script>
 	// Declare the global variable at the top of the script
     let transformedHtmlState = ""; // Global variable to store the transformed HTML reading list
 	
 	// Add the button click event listener
-	//document.getElementById('listButton').addEventListener('click', generateList);
 	document.getElementById('booklistButton').addEventListener('click', generateBooklist);
 	document.getElementById('syllabusButton').addEventListener('click', generateSyllabus);
+	document.getElementById('listButton').addEventListener('click', generateFullList);
+
 	
-	//Function to generate the booklist
+	//Helper function to show/hide containers
+	function showOnly(containerId) {
+	  // List all container IDs you want to toggle:
+	  const containerIds = [
+		"booklistOutput",
+		"renderedOutput",
+		"tableOutput",
+		"syllabusOutput"
+	  ];
+
+	  // Hide every container except the one passed in
+	  containerIds.forEach(id => {
+		const container = document.getElementById(id);
+		if (!container) return;
+		// If this container is the "requested" container, show it; otherwise hide it
+		container.style.display = (id === containerId) ? "block" : "none";
+	  });
+	}
+	
+	//Function to generate the full list
+	function generateFullList() {
+		var inputContent = document.getElementById('input').innerHTML;
+
+		// Step 1: Clean up and transform HTML, include multimedia
+		var transformedContent = applyTransformations(inputContent, transformations);
+		var fullListContent = transformations.keepReadingsSections(transformedContent, true); // Include multimedia	
+		document.getElementById('renderedOutput').innerHTML = transformedContent;
+		
+		
+		showOnly('renderedOutput');
+	}
+	
+	//Function to copy the readings and multimedia (full) list
+	/*function copyFullListHTML(renderedOutput) {
+		const container = document.getElementById(renderedOutput);
+	  	if (!container) {
+			console.warn("No container found with ID:", renderedOutput);
+			return;
+	  	}
+
+	  	// Capture the *raw* HTML markup (including <em>, <a>, etc.)
+	  	const htmlToCopy = container.innerHTML.trim();
+
+	  	// Use the modern Clipboard API
+	  	navigator.clipboard.writeText(htmlToCopy)
+			.then(() => {
+		  	alert("HTML copied to clipboard!");
+			})
+			.catch((err) => {
+		  	console.error("Failed to copy HTML:", err);
+			});
+	}*/
+
+	//Function to generate the booklist table
 	function generateBooklist() {
 	    var inputContent = document.getElementById('input').innerHTML;
 	    
@@ -131,6 +185,8 @@ textarea {
 			console.log("All Extracted Data:", allParsedData);
 			renderTable(allParsedData);
 		}, 0);
+		
+		showOnly('tableOutput');
 	}
 		
 	//Helper function for the syllabus generator; isolates the authors
@@ -307,14 +363,61 @@ textarea {
 
 		// Step 4: Output the syllabus content
 		const syllabusOutput = document.getElementById('syllabusOutput');
-		document.getElementById('renderedOutput').innerHTML = transformedContent;
-		if (!syllabusOutput) {
+	  	if (!syllabusOutput) {
 			console.error("No output container found for syllabus.");
 			return;
-		}
-		syllabusOutput.innerHTML = syllabusEntries;
+	  	}
 
-		console.log("Syllabus successfully generated.");
+	  	// Clear the parent container so we start fresh
+	  	syllabusOutput.innerHTML = "";
+
+	  	// A) Create a sub-container for *just* the syllabus text
+	  	const syllabusTextDiv = document.createElement('div');
+	  	syllabusTextDiv.id = "syllabusTextDiv"; 
+	  	syllabusTextDiv.innerHTML = syllabusEntries;
+
+	  	// B) Create a button
+	  	const copySyllabusButton = document.createElement('button');
+	  	copySyllabusButton.textContent = 'Copy Syllabus';
+	  	copySyllabusButton.addEventListener('click', function() {
+			copySyllabusText('syllabusTextDiv'); 
+	  	});
+
+	  	// Optional: style or wrap the button
+	  	const buttonContainer = document.createElement('div');
+	  	buttonContainer.style.marginBottom = '10px';
+	  	buttonContainer.appendChild(copySyllabusButton);
+
+	  	// C) Insert the button container first (so it appears at the top),
+	  	//    then insert the syllabus text after it
+	  	syllabusOutput.appendChild(buttonContainer);
+	  	syllabusOutput.appendChild(syllabusTextDiv);
+
+	  	// (Optionally, also update "renderedOutput" if you still need it)
+	  	document.getElementById('renderedOutput').innerHTML = transformedContent;
+		showOnly('syllabusOutput');
+	}
+	
+	//Function to copy the syllabus
+	function copySyllabusText(syllabusOutput) {
+	  // Grab the container by ID
+	  const container = document.getElementById(syllabusOutput);
+	  if (!container) {
+		console.warn("No container found with ID:", syllabusOutput);
+		return;
+	  }
+
+	  // Use .innerText or .textContent to get plain text (vs. HTML)
+	  const textToCopy = container.innerText.trim();
+
+	  // Use the Clipboard API to copy
+	  navigator.clipboard.writeText(textToCopy)
+		.then(() => {
+		  alert('Content copied to clipboard!');
+		})
+		.catch(err => {
+		  console.error('Failed to copy text:', err);
+		});
 	}
 	
 	// Function to apply transformations in sequence
@@ -714,7 +817,6 @@ textarea {
 				console.error('Failed to copy table:', err);
 			});
 	}
-	
 	
 	//Define transformations
 	const transformations = {
