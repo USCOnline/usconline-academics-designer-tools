@@ -206,685 +206,691 @@ h1, h2 {
 </div>
 <script>
     	// Configuration Object
-    	const config = {
-        patterns: {
-            italicSpan: /<span([^>]*?font-style:\s*italic[^>]*?)>(.*?)<\/span>/gi,
-            boldSpan: /<span([^>]*?font-weight:\s*700[^>]*?)>(.*?)<\/span>/gi,
-            removeSpan: /<\/?span[^>]*>/g,
-            anchorWithStyle: /<a([^>]*?)style="[^"]*?"([^>]*?)>/gi,
-            paragraphAndListItem: /<(p|li|h[1-6]|ul|ol)[^>]*>/gi,
-            paragraphInListItem: /<li[^>]*>\s*<(p|h3)[^>]*>(.*?)<\/\1>\s*<\/li>/gi,
-            nbsp: /&nbsp;/g,
-            referencePattern: /(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?\s*\(\s*(?:Program\s*Learning\s(?:Outcome|Objective)\s*\[PLO\]|PLOs?|CLOs?|WLOs?)\s*\d+(?:[,\s–—-]*\d+)*,?\)\s*(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?/gi,
-            pagePattern: /\(\d+\s*pages?(?:,.*?)*\)/gi,
-            minutePattern: /\(\d+\\s*minutes?(?:,.*?)*\s*\)/gi,
-            brBetweenTags: />\s*<br\s*\/?>\s*</gi,
-            consecutiveLists: /<\/(ol|ul)>\s*<\1>/gi,
-            closingATag: /<\/a>([^ .!?,:])/g,
-            h1ToPStrong: /<h1>(.*?)<\/h1>/gi,
-            promoteHeadings: /<h([2-6])([^>]*)>(.*?)<\/h\1>/gi,
-            removeH3Sections: /Week\s*\d+\s*:?\s*(Topics)/i,
-            removeH2Sections: /\s*(Course Description|Course Topics)/i,
-            noteParagraph: /<p>\*?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|\*Note: )\s*(.*)<\/p>/i,
-            readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia)/i,
-		  resourcesH3: /^\s*Week\s*\d+\s*(Resource|Resources)/i,
-            
-     },
-        replacements: {
-            italicSpan: '<span$1><em>$2</em></span>',
-            boldSpan: '<span$1><strong>$2</strong></span>',
-            emptyString: '',
-            nbsp: ' ',
-            h1ToPStrong: '<p><strong>$1</strong></p>',
-            promoteHeadings(match, p1, p2, p3) {
-                const newLevel = parseInt(p1) - 1;
-                return `<h${newLevel}${p2}>${p3}</h${newLevel}>`;
-            },
-            removeAnchorStyle(match, p1, p2) {
-                return `<a${p1}${p2}>`;
-            }
-        }
-    };
-    	
-	function toTitleCase(text) {
-        const smallWords = /^(a|an|and|as|at|but|by|for|if|in|nor|of|on|or|so|the|to|up|yet)$/i;
-        return text.replace(/\w\S*/g, (txt, offset) => {
-            if (txt === txt.toUpperCase() || /[A-Z]{2,}/.test(txt)) {
-                return txt;
-            }
-            if (offset === 0 || offset === text.indexOf(":") + 2 || !smallWords.test(txt)) {
-                return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-            }
-            return txt.toLowerCase();
-        });
-    }
-    	
-	function generateUniqueId(item) {
-        return item.textContent.trim().toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).substr(2, 9);
-    }
-    	
-	const transformations = {
-        wrapItalicSpansWithEm(html, config) {
-		   // Parse the HTML string to a DOM object
-		   const parser = new DOMParser();
-		   const doc = parser.parseFromString(html, 'text/html');
+const config = {
+	patterns: {
+		italicSpan: /<span([^>]*?font-style:\s*italic[^>]*?)>(.*?)<\/span>/gi,
+		boldSpan: /<span([^>]*?font-weight:\s*700[^>]*?)>(.*?)<\/span>/gi,
+		removeSpan: /<\/?span[^>]*>/g,
+		anchorWithStyle: /<a([^>]*?)style="[^"]*?"([^>]*?)>/gi,
+		paragraphAndListItem: /<(p|li|h[1-6]|ul|ol)[^>]*>/gi,
+		paragraphInListItem: /<li[^>]*>\s*<(p|h3)[^>]*>(.*?)<\/\1>\s*<\/li>/gi,
+		nbsp: /&nbsp;/g,
+		referencePattern: /(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?\s*\(\s*(?:Program\s*Learning\s(?:Outcome|Objective)\s*\[PLO\]|PLOs?|CLOs?|WLOs?)\s*\d+(?:[,\s–—-]*\d+)*,?\)\s*(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?/gi,
+		pagePattern: /\(\d+\s*pages?(?:,.*?)*\)/gi,
+		minutePattern: /\(\d+\\s*minutes?(?:,.*?)*\s*\)/gi,
+		brBetweenTags: />\s*<br\s*\/?>\s*</gi,
+		consecutiveLists: /<\/(ol|ul)>\s*<\1>/gi,
+		closingATag: /<\/a>([^ .!?,:])/g,
+		h1ToPStrong: /<h1>(.*?)<\/h1>/gi,
+		promoteHeadings: /<h([2-6])([^>]*)>(.*?)<\/h\1>/gi,
+		removeH3Sections: /Week\s*\d+\s*:?\s*(Topics)/i,
+		removeH2Sections: /\s*(Course Description|Course Topics)/i,
+		noteParagraph: /<p>\*?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|\*Note: )\s*(.*)<\/p>/i,
+		readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia)/i,
+		resourcesH3: /^\s*Week\s*\d+\s*(Resource|Resources)/i,
 
-		   // First handle the specific case for italics in spans under certain conditions
-		   doc.querySelectorAll('li[style*="font-style: italic"] p span').forEach(span => {
-			  // Check if the span does not explicitly have 'font-style: normal;'
-			  const spanStyle = span.getAttribute('style');
-			  if (!spanStyle || !spanStyle.includes('font-style: normal')) {
-				 // Check if the content is not already wrapped with em (to prevent double wrapping)
-				 if (!span.querySelector('em')) {
+	},
+	replacements: {
+		italicSpan: '<span$1><em>$2</em></span>',
+		boldSpan: '<span$1><strong>$2</strong></span>',
+		emptyString: '',
+		nbsp: ' ',
+		h1ToPStrong: '<p><strong>$1</strong></p>',
+		promoteHeadings(match, p1, p2, p3) {
+			const newLevel = parseInt(p1) - 1;
+			return `<h${newLevel}${p2}>${p3}</h${newLevel}>`;
+		},
+		removeAnchorStyle(match, p1, p2) {
+			return `<a${p1}${p2}>`;
+		}
+	}
+};
+
+function toTitleCase(text) {
+	const smallWords = /^(a|an|and|as|at|but|by|for|if|in|nor|of|on|or|so|the|to|up|yet)$/i;
+	return text.replace(/\w\S*/g, (txt, offset) => {
+		if (txt === txt.toUpperCase() || /[A-Z]{2,}/.test(txt)) {
+			return txt;
+		}
+		if (offset === 0 || offset === text.indexOf(":") + 2 || !smallWords.test(txt)) {
+			return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+		}
+		return txt.toLowerCase();
+	});
+}
+
+function generateUniqueId(item) {
+	return item.textContent.trim().toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+const transformations = {
+	wrapItalicSpansWithEm(html, config) {
+		// Parse the HTML string to a DOM object
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		// First handle the specific case for italics in spans under certain conditions
+		doc.querySelectorAll('li[style*="font-style: italic"] p span').forEach(span => {
+			// Check if the span does not explicitly have 'font-style: normal;'
+			const spanStyle = span.getAttribute('style');
+			if (!spanStyle || !spanStyle.includes('font-style: normal')) {
+				// Check if the content is not already wrapped with em (to prevent double wrapping)
+				if (!span.querySelector('em')) {
 					// Create an em element and wrap the content of the span
 					const em = document.createElement('em');
 					em.innerHTML = span.innerHTML;
 					span.innerHTML = '';
 					span.appendChild(em);
-				 }
-			  }
-		   });
+				}
+			}
+		});
 
-		   // Convert the updated DOM back to HTML string
-		   let updatedHtml = doc.body.innerHTML;
+		// Convert the updated DOM back to HTML string
+		let updatedHtml = doc.body.innerHTML;
 
-		   // Now handle the general case with regex
-		   updatedHtml = updatedHtml.replace(config.patterns.italicSpan, config.replacements.italicSpan);
+		// Now handle the general case with regex
+		updatedHtml = updatedHtml.replace(config.patterns.italicSpan, config.replacements.italicSpan);
 
-		   return updatedHtml;
-	    },
-        wrapNextParagraphFirstBoldSpanWithStrong(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+		return updatedHtml;
+	},
+	wrapNextParagraphFirstBoldSpanWithStrong(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-            const liElements = doc.querySelectorAll('li[style*="font-weight: 700"]');
+		const liElements = doc.querySelectorAll('li[style*="font-weight: 700"]');
 
-            liElements.forEach(li => {
-                const style = li.getAttribute('style');
-                if (style && /font-weight:\s*700/.test(style)) {
-                    const nextP = li.querySelector('p');
-                    if (nextP) {
-                        const span = nextP.querySelector('span');
-                        if (span) {
-                            let spanStyle = span.getAttribute('style') || '';
-                            if (!/font-weight:\s*700/.test(spanStyle)) {
-                                span.setAttribute('style', `${spanStyle} font-weight: 700;`);
-                            }
-                        }
-                    }
-                }
-            });
+		liElements.forEach(li => {
+			const style = li.getAttribute('style');
+			if (style && /font-weight:\s*700/.test(style)) {
+				const nextP = li.querySelector('p');
+				if (nextP) {
+					const span = nextP.querySelector('span');
+					if (span) {
+						let spanStyle = span.getAttribute('style') || '';
+						if (!/font-weight:\s*700/.test(spanStyle)) {
+							span.setAttribute('style', `${spanStyle} font-weight: 700;`);
+						}
+					}
+				}
+			}
+		});
 
-            return doc.body.innerHTML;
-        },
-        wrapBoldSpansWithStrong(html, config) {
-            return html.replace(config.patterns.boldSpan, config.replacements.boldSpan);
-        },
-        removeSpanTags(html, config) {
-            return html.replace(config.patterns.removeSpan, config.replacements.emptyString);
-        },
-        clearParagraphAndListItemAttributes(html, config) {
-            return html.replace(/<(p|li|h[1-6]|ul|ol)([^>]*)>/gi, (match, p1, p2) => {
-                const ariaLevelMatch = p2.match(/aria-level="[^"]*"/);
-                const ariaLevel = ariaLevelMatch ? ` ${ariaLevelMatch[0]}` : '';
-                return `<${p1}${ariaLevel}>`;
-            });
-        },
-        removeParagraphAndHeadingTagsInsideListItems(html, config) {
-            return html.replace(/<li([^>]*)>\s*<(p|h[1-6])([^>]*)>(.*?)<\/\2>\s*<\/li>/gi, (match, liAttrs, tag, tagAttrs, content) => {
-                const ariaLevelMatch = tagAttrs.match(/aria-level="([^"]*)"/);
-                const ariaLevel = ariaLevelMatch ? ` aria-level="${ariaLevelMatch[1]}"` : '';
-                return `<li${liAttrs}${ariaLevel}>${content}</li>`;
-            });
-        },
-        removeAnchorStyles(html, config) {
-        return html.replace(config.patterns.anchorWithStyle, config.replacements.removeAnchorStyle);
-        },
-        convertNbspToSpaces(html, config) {
-            return html.replace(config.patterns.nbsp, config.replacements.nbsp);
-        },
-        removePatterns(html, config) {
-            return html.replace(config.patterns.referencePattern, config.replacements.emptyString)
-                       .replace(config.patterns.pagePattern, config.replacements.emptyString)
-                       .replace(config.patterns.minutePattern, config.replacements.emptyString);
-        },
-        removeEmptyElements(html, config) {
-		    const parser = new DOMParser();
-		    const doc = parser.parseFromString(html, 'text/html');
+		return doc.body.innerHTML;
+	},
+	wrapBoldSpansWithStrong(html, config) {
+		return html.replace(config.patterns.boldSpan, config.replacements.boldSpan);
+	},
+	removeSpanTags(html, config) {
+		return html.replace(config.patterns.removeSpan, config.replacements.emptyString);
+	},
+	clearParagraphAndListItemAttributes(html, config) {
+		return html.replace(/<(p|li|h[1-6]|ul|ol)([^>]*)>/gi, (match, p1, p2) => {
+			const ariaLevelMatch = p2.match(/aria-level="[^"]*"/);
+			const ariaLevel = ariaLevelMatch ? ` ${ariaLevelMatch[0]}` : '';
+			return `<${p1}${ariaLevel}>`;
+		});
+	},
+	removeParagraphAndHeadingTagsInsideListItems(html, config) {
+		return html.replace(/<li([^>]*)>\s*<(p|h[1-6])([^>]*)>(.*?)<\/\2>\s*<\/li>/gi, (match, liAttrs, tag, tagAttrs, content) => {
+			const ariaLevelMatch = tagAttrs.match(/aria-level="([^"]*)"/);
+			const ariaLevel = ariaLevelMatch ? ` aria-level="${ariaLevelMatch[1]}"` : '';
+			return `<li${liAttrs}${ariaLevel}>${content}</li>`;
+		});
+	},
+	removeAnchorStyles(html, config) {
+		return html.replace(config.patterns.anchorWithStyle, config.replacements.removeAnchorStyle);
+	},
+	convertNbspToSpaces(html, config) {
+		return html.replace(config.patterns.nbsp, config.replacements.nbsp);
+	},
+	removePatterns(html, config) {
+		return html.replace(config.patterns.referencePattern, config.replacements.emptyString)
+			.replace(config.patterns.pagePattern, config.replacements.emptyString)
+			.replace(config.patterns.minutePattern, config.replacements.emptyString);
+	},
+	removeEmptyElements(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-		    // List of tags to check for emptiness
-		    const tagsToCheck = ['span', 'strong', 'em', 'div', 'p', 'li', 'a', 'h3'];
+		// List of tags to check for emptiness
+		const tagsToCheck = ['span', 'strong', 'em', 'div', 'p', 'li', 'a', 'h3'];
 
-		    // Iterate over each tag type
-		    tagsToCheck.forEach(tag => {
-			   doc.querySelectorAll(tag).forEach(element => {
-				  // Special case for <p> tags with &nbsp;
-				  if (tag === 'p') {
-					 if (element.innerHTML.trim() === '&nbsp;') {
+		// Iterate over each tag type
+		tagsToCheck.forEach(tag => {
+			doc.querySelectorAll(tag).forEach(element => {
+				// Special case for <p> tags with &nbsp;
+				if (tag === 'p') {
+					if (element.innerHTML.trim() === '&nbsp;') {
 						return; // Preserve <p> tags containing only &nbsp;
-					 }
-				  }
+					}
+				}
 
-				  // Check if the element is not an iframe and is truly empty
-				  if (!element.textContent.trim() && !element.querySelector('iframe')) {
-					 element.remove();
-				  }
-			   });
-		    });
+				// Check if the element is not an iframe and is truly empty
+				if (!element.textContent.trim() && !element.querySelector('iframe')) {
+					element.remove();
+				}
+			});
+		});
 
-		    return doc.body.innerHTML;
-        },
-        removeBrBetweenTags(html, config) {
-            return html.replace(config.patterns.brBetweenTags, '><');
-        },
-        findBrokenLists(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const noteParagraphs = doc.querySelectorAll('p');
 
-            noteParagraphs.forEach(p => {
-                const previousElement = p.previousElementSibling;
-                const nextElement = p.nextElementSibling;
+		return doc.body.innerHTML;
+	},
+	removeBrBetweenTags(html, config) {
+		return html.replace(config.patterns.brBetweenTags, '><');
+	},
+	findBrokenLists(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const noteParagraphs = doc.querySelectorAll('p');
 
-                if (
-                    previousElement && (previousElement.tagName === 'UL' || previousElement.tagName === 'OL') &&
-                    nextElement && (nextElement.tagName === 'UL' || nextElement.tagName === 'OL') &&
-                    config.patterns.noteParagraph.test(p.outerHTML)
-                ) {
-                    console.log(`Found broken list around <p> with text: ${p.textContent}`);
+		noteParagraphs.forEach(p => {
+			const previousElement = p.previousElementSibling;
+			const nextElement = p.nextElementSibling;
 
-                    // Generate unique ID for the last list item of the previous list
-                    const lastItem = previousElement.lastElementChild;
-                    if (lastItem) {
-                        const uniqueId = generateUniqueId(lastItem);
-                        lastItem.setAttribute('data-unique-id', uniqueId);
-                        
-                        // Store the paragraph's content in the array along with the unique ID
-                        noteParagraphsArray.push({ uniqueId: uniqueId, content: p.innerHTML });
-                        
-                        // Remove the paragraph from the document
-                        p.remove();
+			if (
+				previousElement && (previousElement.tagName === 'UL' || previousElement.tagName === 'OL')
+				&& nextElement && (nextElement.tagName === 'UL' || nextElement.tagName === 'OL')
+				&& config.patterns.noteParagraph.test(p.outerHTML)
+			) {
+				console.log(`Found broken list around <p> with text: ${p.textContent}`);
 
-                    }
-                }
-            });
+				// Generate unique ID for the last list item of the previous list
+				const lastItem = previousElement.lastElementChild;
+				if (lastItem) {
+					const uniqueId = generateUniqueId(lastItem);
+					lastItem.setAttribute('data-unique-id', uniqueId);
 
-            return doc.body.innerHTML;
-        },
-        properlyNestAdjacentLists(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+					// Store the paragraph's content in the array along with the unique ID
+					noteParagraphsArray.push({
+						uniqueId: uniqueId,
+						content: p.innerHTML
+					});
 
-            let olElements = doc.querySelectorAll('ol');
-            olElements.forEach(ol => {
-                let nextElement = ol.nextElementSibling;
-                while (nextElement && nextElement.tagName === 'UL') {
-                    let lastLi = ol.querySelector('li:last-child');
-                    if (!lastLi) {
-                        lastLi = doc.createElement('li');
-                        ol.appendChild(lastLi);
-                    }
-                    lastLi.appendChild(nextElement);
-                    nextElement = ol.nextElementSibling;
-                }
-            });
+					// Remove the paragraph from the document
+					p.remove();
 
-            return doc.body.innerHTML;
-        },
-        mergeConsecutiveLists(html, config) {
-            return html.replace(config.patterns.consecutiveLists, '');
-        },
-        combineAdjacentLinks(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+				}
+			}
+		});
 
-            const links = doc.querySelectorAll('a[href]');
-            links.forEach((link, index) => {
-                const nextSibling = link.nextSibling;
-                if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE && nextSibling.tagName === 'A') {
-                    const nextLink = nextSibling;
-                    if (nextLink.getAttribute('href') === link.getAttribute('href')) {
-                        link.textContent += nextLink.textContent;
-                        nextLink.remove();
-                    }
-                }
-            });
+		return doc.body.innerHTML;
+	},
+	properlyNestAdjacentLists(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-            return doc.body.innerHTML;
-        },
-        renestListsByAriaLevel(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+		let olElements = doc.querySelectorAll('ol');
+		olElements.forEach(ol => {
+			let nextElement = ol.nextElementSibling;
+			while (nextElement && nextElement.tagName === 'UL') {
+				let lastLi = ol.querySelector('li:last-child');
+				if (!lastLi) {
+					lastLi = doc.createElement('li');
+					ol.appendChild(lastLi);
+				}
+				lastLi.appendChild(nextElement);
+				nextElement = ol.nextElementSibling;
+			}
+		});
 
-            const listItems = Array.from(doc.querySelectorAll('li[aria-level]'));
-            let currentList = null;
-            
-            listItems.forEach(item => {
-                const ariaLevel = parseInt(item.getAttribute('aria-level'));
-                
-                if (ariaLevel === 1) {
-                    currentList = item; // Set the currentList to the current aria-level 1 <li>
-                } else if (ariaLevel === 2) {
-                    if (currentList && currentList.getAttribute('aria-level') === '1') {
-                        let ul = currentList.querySelector('ul');
-                        
-                        if (!ul) {
-                            ul = document.createElement('ul');
-                            currentList.appendChild(ul);
-                        }
-                        
-                        ul.appendChild(item); // Move the aria-level 2 <li> under the <ul>
-                    }
-                }
-            });
+		return doc.body.innerHTML;
+	},
+	mergeConsecutiveLists(html, config) {
+		return html.replace(config.patterns.consecutiveLists, '');
+	},
+	combineAdjacentLinks(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-            return doc.body.innerHTML;
-        },
-        adjustExternalLinks(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+		const links = doc.querySelectorAll('a[href]');
+		links.forEach((link, index) => {
+			const nextSibling = link.nextSibling;
+			if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE && nextSibling.tagName === 'A') {
+				const nextLink = nextSibling;
+				if (nextLink.getAttribute('href') === link.getAttribute('href')) {
+					link.textContent += nextLink.textContent;
+					nextLink.remove();
+				}
+			}
+		});
 
-            doc.querySelectorAll('a[href*="usc.edu"]').forEach(link => {
-                link.target = "_blank";
-                link.rel = "noreferrer noopener";
-                link.title = "External Link";
-            });
+		return doc.body.innerHTML;
+	},
+	renestListsByAriaLevel(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-            return doc.body.innerHTML;
-        },
-        adjustListStyles(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+		const listItems = Array.from(doc.querySelectorAll('li[aria-level]'));
+		let currentList = null;
 
-            doc.querySelectorAll('ol, ul').forEach(tag => {
-                tag.style.paddingLeft = '15px';
-                tag.style.paddingRight = '20px';
-            });
+		listItems.forEach(item => {
+			const ariaLevel = parseInt(item.getAttribute('aria-level'));
 
-            return doc.body.innerHTML;
-        },
-        addSpaceAfterClosingATag(html, config) {
-            return html.replace(config.patterns.closingATag, '</a> $1');
-        },
-        convertH1ToPStrong(html, config) {
-            return html.replace(config.patterns.h1ToPStrong, config.replacements.h1ToPStrong);
-        },
-        promoteHeadings(html, config) {
-            return html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
-        },
-        filterRelevantH3Sections(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const h3Elements = doc.querySelectorAll('h3');
+			if (ariaLevel === 1) {
+				currentList = item; // Set the currentList to the current aria-level 1 <li>
+			} else if (ariaLevel === 2) {
+				if (currentList && currentList.getAttribute('aria-level') === '1') {
+					let ul = currentList.querySelector('ul');
 
-            h3Elements.forEach(h3 => {
-                if (config.patterns.removeH3Sections.test(h3.textContent)) {
-                    if (h3.nextElementSibling) {
-                        h3.nextElementSibling.remove();
-                    }
-                    h3.remove();
-                }
-            });
+					if (!ul) {
+						ul = document.createElement('ul');
+						currentList.appendChild(ul);
+					}
 
-            return doc.body.innerHTML;
-        },
-        filterRelevantH2Sections(html, config) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const h2Elements = doc.querySelectorAll('h2');
+					ul.appendChild(item); // Move the aria-level 2 <li> under the <ul>
+				}
+			}
+		});
 
-            h2Elements.forEach(h2 => {
-                if (config.patterns.removeH2Sections.test(h2.textContent)) {
-                    if (h2.nextElementSibling) {
-                        h2.nextElementSibling.remove();
-                    }
-                    h2.remove();
-                }
-            });
+		return doc.body.innerHTML;
+	},
+	adjustExternalLinks(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-            return doc.body.innerHTML;
-        },
-	   removeH1s(html) {
-		   const parser = new DOMParser();
-		   const doc = parser.parseFromString(html, 'text/html');
-		   const h1Elements = doc.querySelectorAll('h1');
+		doc.querySelectorAll('a[href*="usc.edu"]').forEach(link => {
+			link.target = "_blank";
+			link.rel = "noreferrer noopener";
+			link.title = "External Link";
+		});
 
-		   h1Elements.forEach(h1 => {
-			  h1.remove();
-		   });
+		return doc.body.innerHTML;
+	},
+	adjustListStyles(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
 
-		   return doc.body.innerHTML; 
-	   }, 
-        
-    };
-    	
-	const noteParagraphsArray = [];
-    	
-	function extractVariablesFromHTML(liElement, h3Element) {
-	    let headingSize = (/readings/i.test(h3Element.textContent)) ? '12pt' : '14pt';
-	    let headingTag = 'h3'; // Default tag for regular readings
-	    let categoryTitle = '';
+		doc.querySelectorAll('ol, ul').forEach(tag => {
+			tag.style.paddingLeft = '15px';
+			tag.style.paddingRight = '20px';
+		});
 
-	    // Ensure we start checking from the list container's immediate sibling
-	    let currentElement = liElement.parentNode; // This is the UL or OL element
-	    let previousElement = currentElement.previousElementSibling; // Start with the immediate previous sibling
+		return doc.body.innerHTML;
+	},
+	addSpaceAfterClosingATag(html, config) {
+		return html.replace(config.patterns.closingATag, '</a> $1');
+	},
+	convertH1ToPStrong(html, config) {
+		return html.replace(config.patterns.h1ToPStrong, config.replacements.h1ToPStrong);
+	},
+	promoteHeadings(html, config) {
+		return html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
+	},
+	filterRelevantH3Sections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h3Elements = doc.querySelectorAll('h3');
 
-	    // Log the HTML of the list container to see the surrounding structure
-    	    //console.log("HTML just before checking siblings:", currentElement.outerHTML);
-	    
-	    //console.log("Starting to check siblings for H4...");
+		h3Elements.forEach(h3 => {
+			if (config.patterns.removeH3Sections.test(h3.textContent)) {
+				if (h3.nextElementSibling) {
+					h3.nextElementSibling.remove();
+				}
+				h3.remove();
+			}
+		});
 
-	    while (previousElement && previousElement !== h3Element) {
-		   console.log(`Checking sibling: ${previousElement.tagName}`); // Detailed debugging
-		   if (previousElement.tagName === 'H4') {
-			  headingTag = 'h4';
-			  categoryTitle = previousElement.textContent.trim();
-			  console.log(`Categorized Reading Detected under H4: ${categoryTitle}`);
-			  break;
-		   }
-		   previousElement = previousElement.previousElementSibling; // Move to the previous sibling
-	    }
+		return doc.body.innerHTML;
+	},
+	filterRelevantH2Sections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h2Elements = doc.querySelectorAll('h2');
 
-	    if (!categoryTitle) { // If no H4 was found, log the outcome
-		   console.log("No H4 found before the list.");
-	    }
+		h2Elements.forEach(h2 => {
+			if (config.patterns.removeH2Sections.test(h2.textContent)) {
+				if (h2.nextElementSibling) {
+					h2.nextElementSibling.remove();
+				}
+				h2.remove();
+			}
+		});
 
-	    const aElement = liElement.querySelector('a');
-	    const readingTitle = aElement ? toTitleCase(aElement.textContent.trim()) : '';
-	    let associatedParagraph = '';
+		return doc.body.innerHTML;
+	},
+	removeH1s(html) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h1Elements = doc.querySelectorAll('h1');
 
-	    const uniqueId = liElement.getAttribute('data-unique-id');
-	    const noteParagraph = noteParagraphsArray.find(note => note.uniqueId === uniqueId);
-	    if (noteParagraph) {
-		   associatedParagraph = noteParagraph.content;
-	    }
+		h1Elements.forEach(h1 => {
+			h1.remove();
+		});
 
-	    let additionalContent = '';
-	    let citation = '';
-	    const ariaLevel = liElement.getAttribute('aria-level');
-	    if (ariaLevel !== '2') {
-		   const parser = new DOMParser();
-		   const doc = parser.parseFromString(liElement.innerHTML, 'text/html');
-		   doc.querySelectorAll('ol, ul').forEach(el => el.remove());
+		return doc.body.innerHTML;
+	},
 
-		   if (headingSize === '14pt') {
-			  //console.log("Before removing <a> tags:", doc.body.innerHTML);
-			  doc.querySelectorAll('a').forEach(a => {
-				 const parent = a.parentNode;
-				 //console.log("Removing <a>:", a.outerHTML);
-				 while (a.firstChild) parent.insertBefore(a.firstChild, a);
-				 parent.removeChild(a);
-			  });
-			  //console.log("After removing <a> tags:", doc.body.innerHTML); 
-		   }
-		   citation = doc.body.innerHTML.trim();
-	    }
-console.log("Citation content before processing:", citation);  // Add this log
-	    let headingPrefix = '';
-	    if (/multimedia/i.test(h3Element.textContent)) {
-		   const bracketMatch = citation.match(/\[([^\]]+)\]/);
-		   if (bracketMatch) {
-			  headingPrefix = bracketMatch[1] + ':';
-		   }
-	    }
-if (headingPrefix && readingTitle) {
-        console.log(`Multimedia Title Found: ${readingTitle}`);
-    }
-	    let chapterText = '';
-	    const chapterRegex = /<strong>(.*?):?\s*<\/strong>\s*:?/i;
-	    const chapterMatch = citation.match(chapterRegex);
-	    if (chapterMatch) {
-		   chapterText = chapterMatch[1].trim();
-		   if (chapterMatch[0].includes(':')) {
-			  chapterText += ' - ';
-		   }
-	    }
+};
 
-	    let timestamp = '';
-	    const timestampMatch = citation.match(/\((\d{1,2}\s?:\s?\d{2}(?:\s?:\s?\d{2})?)\)/);
-	    if (timestampMatch) {
-		   timestamp = timestampMatch[1].replace(/\s/g, '');
-	    }
+const noteParagraphsArray = [];
 
-	    if (/multimedia/i.test(h3Element.textContent)) {
-		   if (/Video/i.test(headingPrefix)) {
-			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
-		   } else if (/Audio/i.test(headingPrefix)) {
-			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
-		   } else if (/Podcast/i.test(headingPrefix)) {
-			  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
-		   }
-	    }
+function extractVariablesFromHTML(liElement, h3Element) {
+	let headingSize = (/readings/i.test(h3Element.textContent)) ? '12pt' : '14pt';
+	let headingTag = 'h3'; // Default tag for regular readings
+	let categoryTitle = '';
 
-	    citation = citation.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '').trim();
-	    citation = citation.replace(chapterRegex, '').trim();
+	// Ensure we start checking from the list container's immediate sibling
+	let currentElement = liElement.parentNode; // This is the UL or OL element
+	let previousElement = currentElement.previousElementSibling; // Start with the immediate previous sibling
 
-	    const focusQuestions = [];
-	    const focusQuestionElements = liElement.querySelectorAll('li[aria-level="2"]');
-	    focusQuestionElements.forEach(element => {
-		   focusQuestions.push(element.innerHTML.trim());
-		   element.classList.add('marked-for-removal'); // Marking for potential removal
-	    });
+	// Log the HTML of the list container to see the surrounding structure
+	//console.log("HTML just before checking siblings:", currentElement.outerHTML);
 
-	    let iframeTemplate = '';
-	    if (/multimedia/i.test(h3Element.textContent)) {
-		   let videoID = '';
-		   const linkMatch = citation.match(/(?:watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-		   if (linkMatch) {
-			  videoID = linkMatch[1];
-console.log("Detected YouTube ID: ", videoID); // Add this log to see if it's working
-			  iframeTemplate = `<p><iframe title="${readingTitle} Video" src="https://www.youtube.com/embed/${videoID}?rel=0" width="560" height="315" allowfullscreen="allowfullscreen" webkitallowfullscreen="webkitallowfullscreen" mozallowfullscreen="mozallowfullscreen"></iframe></p>`;
-		   }
-	    }
+	//console.log("Starting to check siblings for H4...");
 
-	    return {
-		   headingSize,
-		   headingPrefix,
-		   headingTag,
-		   chapterText,
-		   readingTitle,
-		   categoryTitle,
-		   associatedParagraph,
-		   additionalContent,
-		   citation,
-		   focusQuestions,
-		   iframeTemplate
-	    };
-	    
+	while (previousElement && previousElement !== h3Element) {
+		console.log(`Checking sibling: ${previousElement.tagName}`); // Detailed debugging
+		if (previousElement.tagName === 'H4') {
+			headingTag = 'h4';
+			categoryTitle = previousElement.textContent.trim();
+			console.log(`Categorized Reading Detected under H4: ${categoryTitle}`);
+			break;
+		}
+		previousElement = previousElement.previousElementSibling; // Move to the previous sibling
 	}
-    	
-	function findNextH4OrList(startElement) {
-	    let currentElement = startElement;
 
-	    while (currentElement) {
-		   // Skip irrelevant <p> tags or other tags that we don't need
-		   if (currentElement.tagName === 'P' && currentElement.textContent.trim() === '') {
-			  currentElement = currentElement.nextElementSibling; // Skip empty <p> tags
-			  continue;
-		   }
-  // Add logging to see which element is currently being processed
-        console.log("Current element being processed:", currentElement.tagName, currentElement.outerHTML);
-		    
-		   // Look for <h4>, <ul>, or <ol> tags
-		   if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
-			  return currentElement; // Found the next relevant element
-		   }
-
-		   // Move to the next sibling
-		   currentElement = currentElement.nextElementSibling;
-	    }
-	    return null; // No more relevant elements found
+	if (!categoryTitle) { // If no H4 was found, log the outcome
+		console.log("No H4 found before the list.");
 	}
-    	
-	function integrateTemplateContentInPlace(html, config) {
-	    const parser = new DOMParser();
-	    const doc = parser.parseFromString(html, 'text/html');
-	    console.log("Initial DOM state:", doc.body.innerHTML); // Log the initial HTML state
 
-	    let currentElement = doc.querySelector('h3'); // Start with the first <h3>
+	const aElement = liElement.querySelector('a');
+	const readingTitle = aElement ? toTitleCase(aElement.textContent.trim()) : '';
+	let associatedParagraph = '';
 
-	    // Iterate through each <h3> section
-	    while (currentElement) {
-		   if (config.patterns.readingsMultimediaH3.test(currentElement.textContent)) {
-			  console.log("Processing <h3> section (readings/multimedia):", currentElement.outerHTML);
-			  const templates = [];
+	const uniqueId = liElement.getAttribute('data-unique-id');
+	const noteParagraph = noteParagraphsArray.find(note => note.uniqueId === uniqueId);
+	if (noteParagraph) {
+		associatedParagraph = noteParagraph.content;
+	}
 
-			  // Gather all elements between this <h3> and the next <h3>
-			  let sectionElements = gatherH4AndListsInSection(currentElement);
+	let additionalContent = '';
+	let citation = '';
+	const ariaLevel = liElement.getAttribute('aria-level');
+	if (ariaLevel !== '2') {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(liElement.innerHTML, 'text/html');
+		doc.querySelectorAll('ol, ul').forEach(el => el.remove());
 
-			  // Process each element and generate templates
-			  sectionElements.forEach(element => {
-				 if (element.tagName === 'H4') {
+		if (headingSize === '14pt') {
+			//console.log("Before removing <a> tags:", doc.body.innerHTML);
+			doc.querySelectorAll('a').forEach(a => {
+				const parent = a.parentNode;
+				//console.log("Removing <a>:", a.outerHTML);
+				while (a.firstChild) parent.insertBefore(a.firstChild, a);
+				parent.removeChild(a);
+			});
+			//console.log("After removing <a> tags:", doc.body.innerHTML); 
+		}
+		citation = doc.body.innerHTML.trim();
+	}
+	console.log("Citation content before processing:", citation); // Add this log
+	let headingPrefix = '';
+	if (/multimedia/i.test(h3Element.textContent)) {
+		const bracketMatch = citation.match(/\[([^\]]+)\]/);
+		if (bracketMatch) {
+			headingPrefix = bracketMatch[1] + ':';
+		}
+	}
+	if (headingPrefix && readingTitle) {
+		console.log(`Multimedia Title Found: ${readingTitle}`);
+	}
+	let chapterText = '';
+	const chapterRegex = /<strong>(.*?):?\s*<\/strong>\s*:?/i;
+	const chapterMatch = citation.match(chapterRegex);
+	if (chapterMatch) {
+		chapterText = chapterMatch[1].trim();
+		if (chapterMatch[0].includes(':')) {
+			chapterText += ' - ';
+		}
+	}
+
+	let timestamp = '';
+	const timestampMatch = citation.match(/\((\d{1,2}\s?:\s?\d{2}(?:\s?:\s?\d{2})?)\)/);
+	if (timestampMatch) {
+		timestamp = timestampMatch[1].replace(/\s/g, '');
+	}
+
+	if (/multimedia/i.test(h3Element.textContent)) {
+		if (/Video/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
+		} else if (/Audio/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
+		} else if (/Podcast/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
+		}
+	}
+
+	citation = citation.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '').trim();
+	citation = citation.replace(chapterRegex, '').trim();
+
+	const focusQuestions = [];
+	const focusQuestionElements = liElement.querySelectorAll('li[aria-level="2"]');
+	focusQuestionElements.forEach(element => {
+		focusQuestions.push(element.innerHTML.trim());
+		element.classList.add('marked-for-removal'); // Marking for potential removal
+	});
+
+	let iframeTemplate = '';
+	if (/multimedia/i.test(h3Element.textContent)) {
+		let videoID = '';
+		const linkMatch = citation.match(/(?:watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+		if (linkMatch) {
+			videoID = linkMatch[1];
+			console.log("Detected YouTube ID: ", videoID); // Add this log to see if it's working
+			iframeTemplate = `<p><iframe title="${readingTitle} Video" src="https://www.youtube.com/embed/${videoID}?rel=0" width="560" height="315" allowfullscreen="allowfullscreen" webkitallowfullscreen="webkitallowfullscreen" mozallowfullscreen="mozallowfullscreen"></iframe></p>`;
+		}
+	}
+
+	return {
+		headingSize,
+		headingPrefix,
+		headingTag,
+		chapterText,
+		readingTitle,
+		categoryTitle,
+		associatedParagraph,
+		additionalContent,
+		citation,
+		focusQuestions,
+		iframeTemplate
+	};
+
+}
+
+function findNextH4OrList(startElement) {
+	let currentElement = startElement;
+
+	while (currentElement) {
+		// Skip irrelevant <p> tags or other tags that we don't need
+		if (currentElement.tagName === 'P' && currentElement.textContent.trim() === '') {
+			currentElement = currentElement.nextElementSibling; // Skip empty <p> tags
+			continue;
+		}
+		// Add logging to see which element is currently being processed
+		console.log("Current element being processed:", currentElement.tagName, currentElement.outerHTML);
+
+		// Look for <h4>, <ul>, or <ol> tags
+		if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+			return currentElement; // Found the next relevant element
+		}
+
+		// Move to the next sibling
+		currentElement = currentElement.nextElementSibling;
+	}
+	return null; // No more relevant elements found
+}
+
+function integrateTemplateContentInPlace(html, config) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	console.log("Initial DOM state:", doc.body.innerHTML); // Log the initial HTML state
+
+	let currentElement = doc.querySelector('h3'); // Start with the first <h3>
+
+	// Iterate through each <h3> section
+	while (currentElement) {
+		if (config.patterns.readingsMultimediaH3.test(currentElement.textContent)) {
+			console.log("Processing <h3> section (readings/multimedia):", currentElement.outerHTML);
+			const templates = [];
+
+			// Gather all elements between this <h3> and the next <h3>
+			let sectionElements = gatherH4AndListsInSection(currentElement);
+
+			// Process each element and generate templates
+			sectionElements.forEach(element => {
+				if (element.tagName === 'H4') {
 					console.log("Processing <h4>:", element.outerHTML); // Log the content of the <h4> before processing it
 					processH4AndItsList(element, templates, currentElement);
-				 } else if (element.tagName === 'UL' || element.tagName === 'OL') {
+				} else if (element.tagName === 'UL' || element.tagName === 'OL') {
 					console.log("Processing list:", element.outerHTML); // Log before processing a list
 					processList(element, templates, currentElement);
-				 }
-			  });
+				}
+			});
 
-			  // Insert processed templates for this section
-			  templates.reverse().forEach(template => {
-				 console.log("Inserting template after <h3>:", currentElement.outerHTML);
-                     console.log("Template to insert:", template);  // Log the template to be inserted
-				 currentElement.insertAdjacentHTML('afterend', template);
-			  });
-		   } else if (config.patterns.resourcesH3.test(currentElement.textContent)) {
-			  console.log("Processing <h3> section (resources):", currentElement.outerHTML);
+			// Insert processed templates for this section
+			templates.reverse().forEach(template => {
+				console.log("Inserting template after <h3>:", currentElement.outerHTML);
+				console.log("Template to insert:", template); // Log the template to be inserted
+				currentElement.insertAdjacentHTML('afterend', template);
+			});
+		} else if (config.patterns.resourcesH3.test(currentElement.textContent)) {
+			console.log("Processing <h3> section (resources):", currentElement.outerHTML);
 
-			  // Gather elements for this section
-			  let sectionElements = gatherH4AndListsInSection(currentElement);
+			// Gather elements for this section
+			let sectionElements = gatherH4AndListsInSection(currentElement);
 
-			  // **Ensure removal of gathered elements after processing**
-			  // Simply output the section as-is without applying templates
-			  const rawSectionContent = sectionElements.map(element => {
-				 // Mark element for removal after appending
-				 let content = element.outerHTML;
-				 element.remove(); // Remove after processing to avoid duplication
-				 return content;
-			  }).join('');
+			// **Ensure removal of gathered elements after processing**
+			// Simply output the section as-is without applying templates
+			const rawSectionContent = sectionElements.map(element => {
+				// Mark element for removal after appending
+				let content = element.outerHTML;
+				element.remove(); // Remove after processing to avoid duplication
+				return content;
+			}).join('');
 
-			  currentElement.insertAdjacentHTML('afterend', rawSectionContent);
+			currentElement.insertAdjacentHTML('afterend', rawSectionContent);
 
-			  }
+		}
 
-		   // Move to the next <h3>
-		   currentElement = currentElement.nextElementSibling;
-		   while (currentElement && currentElement.tagName !== 'H3') {
-			  currentElement = currentElement.nextElementSibling;
-		   }
-	    }
-
-	    return doc.body.innerHTML;
-	}
-    	
-	// Function to gather all <h4> and <ul>/<ol> elements within a section (between two <h3> tags)
-	function gatherH4AndListsInSection(h3Element) {
-	    let currentElement = h3Element.nextElementSibling;
-	    let elementsToProcess = [];
-
-	    // Continue until we hit the next <h3> or the end of the section
-	    while (currentElement && currentElement.tagName !== 'H3') {
-		   if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
-			  elementsToProcess.push(currentElement);
-		   }
-		   currentElement = currentElement.nextElementSibling;
-	    }
-
-	    return elementsToProcess;
+		// Move to the next <h3>
+		currentElement = currentElement.nextElementSibling;
+		while (currentElement && currentElement.tagName !== 'H3') {
+			currentElement = currentElement.nextElementSibling;
+		}
 	}
 
-    	function processH4AndItsList(h4Element, templates, h3orh4) {
-	    console.log("Processing <h4> tag and its subsequent lists:", h4Element.textContent);
+	return doc.body.innerHTML;
+}
 
-	    let nextElement = h4Element.nextElementSibling; // Start with the element after the current <h4>
+// Function to gather all <h4> and <ul>/<ol> elements within a section (between two <h3> tags)
+function gatherH4AndListsInSection(h3Element) {
+	let currentElement = h3Element.nextElementSibling;
+	let elementsToProcess = [];
 
-	    // Add the category title (once per <h4> section)
-	    const variables = {
-		   categoryTitle: h4Element.textContent.trim(),
-		   headingSize: '12pt', // Adjust this as necessary
-		   headingPrefix: '',
-		   chapterText: '',
-		   readingTitle: '',
-		   associatedParagraph: '',
-		   additionalContent: '',
-		   citation: '',
-		   focusQuestions: [],
-		   iframeTemplate: ''
-	    };
-	    // Insert the category title template first
-	    templates.push(generateCategoryTitleTemplate(variables));
-
-	    // Now process the subsequent lists or items
-	    while (nextElement && nextElement.tagName !== 'H3') {
-		   console.log("Checking next sibling element:", nextElement.tagName, nextElement.outerHTML);
-
-		   if (nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
-			  console.log("Found a list following the <h4>:", nextElement.outerHTML);
-
-			  // Process the current list
-			  processList(nextElement, templates, h3orh4);
-
-			  // Move to the next element after processing the list
-			  nextElement = nextElement.nextElementSibling;
-		   } else if (nextElement.tagName === 'H4') {
-			  console.log("Found another <h4> tag:", nextElement.outerHTML);
-
-			  // Process this new <h4> and its associated list
-			  processH4AndItsList(nextElement, templates, h3orh4);
-			  return; // After processing, return to avoid skipping elements
-		   } else {
-			  // If it's neither a <ul>, <ol>, nor <h4>, move to the next sibling
-			  nextElement = nextElement.nextElementSibling;
-		   }
-	    }
-
-	    // Once all relevant lists and <h4> tags are processed, remove the original <h4>
-	    h4Element.remove();
+	// Continue until we hit the next <h3> or the end of the section
+	while (currentElement && currentElement.tagName !== 'H3') {
+		if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+			elementsToProcess.push(currentElement);
+		}
+		currentElement = currentElement.nextElementSibling;
 	}
 
-	function processList(listElement, templates, h3orh4, isFirstInCategory) {
-	    console.log("Processing list:", listElement.outerHTML);
-	    const listItems = Array.from(listElement.querySelectorAll('li[aria-level="1"]'));
+	return elementsToProcess;
+}
 
-	    listItems.forEach(li => {
-		   console.log("Extracting variables from LI:", li.outerHTML);
-		   const variables = extractVariablesFromHTML(li, h3orh4);
+function processH4AndItsList(h4Element, templates, h3orh4) {
+	console.log("Processing <h4> tag and its subsequent lists:", h4Element.textContent);
 
-		   // Pass the `isFirstInCategory` flag only for the first reading in the category
-		   variables.isFirstInCategory = isFirstInCategory;
+	let nextElement = h4Element.nextElementSibling; // Start with the element after the current <h4>
 
-		   const generatedTemplate = generateTemplate(variables);//NEW
-		   console.log("Generated template:", generatedTemplate);  // Add this log
-		    
-		   templates.push(generateTemplate(variables));
-		   li.remove();
-	    });
+	// Add the category title (once per <h4> section)
+	const variables = {
+		categoryTitle: h4Element.textContent.trim(),
+		headingSize: '12pt', // Adjust this as necessary
+		headingPrefix: '',
+		chapterText: '',
+		readingTitle: '',
+		associatedParagraph: '',
+		additionalContent: '',
+		citation: '',
+		focusQuestions: [],
+		iframeTemplate: ''
+	};
+	// Insert the category title template first
+	templates.push(generateCategoryTitleTemplate(variables));
 
-	    listElement.remove(); // Remove the list after processing
+	// Now process the subsequent lists or items
+	while (nextElement && nextElement.tagName !== 'H3') {
+		console.log("Checking next sibling element:", nextElement.tagName, nextElement.outerHTML);
+
+		if (nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
+			console.log("Found a list following the <h4>:", nextElement.outerHTML);
+
+			// Process the current list
+			processList(nextElement, templates, h3orh4);
+
+			// Move to the next element after processing the list
+			nextElement = nextElement.nextElementSibling;
+		} else if (nextElement.tagName === 'H4') {
+			console.log("Found another <h4> tag:", nextElement.outerHTML);
+
+			// Process this new <h4> and its associated list
+			processH4AndItsList(nextElement, templates, h3orh4);
+			return; // After processing, return to avoid skipping elements
+		} else {
+			// If it's neither a <ul>, <ol>, nor <h4>, move to the next sibling
+			nextElement = nextElement.nextElementSibling;
+		}
 	}
 
-	function generateCategoryTitleTemplate(variables) {
-	    const { categoryTitle } = variables;
+	// Once all relevant lists and <h4> tags are processed, remove the original <h4>
+	h4Element.remove();
+}
 
-	    return `<h3 style="font-size: 12pt;"><strong>${categoryTitle}</strong></h3>`;
-	}
-	
-    	function generateTemplate(variables) {
-	    const {
-		   headingSize,
-		   headingPrefix,
-		   headingTag, // defined by whether or not the list was preceded by h3 or h4
-		   chapterText,
-		   readingTitle,
-		   associatedParagraph,
-		   additionalContent,
-		   citation,
-		   focusQuestions,
-		   iframeTemplate
-	    } = variables;
-console.log("iframeTemplate content before returning the template:", iframeTemplate);  // Add this log
-	    return `
+function processList(listElement, templates, h3orh4, isFirstInCategory) {
+	console.log("Processing list:", listElement.outerHTML);
+	const listItems = Array.from(listElement.querySelectorAll('li[aria-level="1"]'));
+
+	listItems.forEach(li => {
+		console.log("Extracting variables from LI:", li.outerHTML);
+		const variables = extractVariablesFromHTML(li, h3orh4);
+
+		// Pass the `isFirstInCategory` flag only for the first reading in the category
+		variables.isFirstInCategory = isFirstInCategory;
+
+		const generatedTemplate = generateTemplate(variables); //NEW
+		console.log("Generated template:", generatedTemplate); // Add this log
+
+		templates.push(generateTemplate(variables));
+		li.remove();
+	});
+
+	listElement.remove(); // Remove the list after processing
+}
+
+function generateCategoryTitleTemplate(variables) {
+	const {
+		categoryTitle
+	} = variables;
+
+	return `<h3 style="font-size: 12pt;"><strong>${categoryTitle}</strong></h3>`;
+}
+
+function generateTemplate(variables) {
+	const {
+		headingSize,
+		headingPrefix,
+		headingTag, // defined by whether or not the list was preceded by h3 or h4
+		chapterText,
+		readingTitle,
+		associatedParagraph,
+		additionalContent,
+		citation,
+		focusQuestions,
+		iframeTemplate
+	} = variables;
+	console.log("iframeTemplate content before returning the template:", iframeTemplate); // Add this log
+	return `
 		   <${headingTag} style="font-size: ${headingSize};">
 			  <strong>${headingPrefix}${chapterText} ${readingTitle}${associatedParagraph ? '*' : ''}</strong>
 			  ${additionalContent}
@@ -898,308 +904,307 @@ console.log("iframeTemplate content before returning the template:", iframeTempl
 		   </ul>` : ''}
 		   ${iframeTemplate}
 		   <p>&nbsp;</p>`;
-	}
+}
 
-    	function applyTransformations(html, transformations, config) {
-			let transformedHtml = html;
-			Object.keys(transformations).forEach(transformation => {
-				// Check if the next transformation is 'removePatterns'
-				if (transformation === 'removePatterns') {
-					console.log(`HTML before 'removePatterns':\n`, transformedHtml);
-				}
-				// Apply the current transformation
-				transformedHtml = transformations[transformation](transformedHtml, config);
-				// Debug output after each transformation
-		//        console.log(`After ${transformation}:\n`, transformedHtml);
-			});
-			return transformedHtml;
-
+function applyTransformations(html, transformations, config) {
+	let transformedHtml = html;
+	Object.keys(transformations).forEach(transformation => {
+		// Check if the next transformation is 'removePatterns'
+		if (transformation === 'removePatterns') {
+			console.log(`HTML before 'removePatterns':\n`, transformedHtml);
 		}
-	
-    	function ensureListsAreIntact(html) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const h3Elements = doc.querySelectorAll('h3');
+		// Apply the current transformation
+		transformedHtml = transformations[transformation](transformedHtml, config);
+		// Debug output after each transformation
+		//        console.log(`After ${transformation}:\n`, transformedHtml);
+	});
+	return transformedHtml;
 
-        h3Elements.forEach(h3 => {
-            const nextElement = h3.nextElementSibling;
-            if (!nextElement || (nextElement.tagName !== 'UL' && nextElement.tagName !== 'OL')) {
-                console.error(`Error: ${h3.textContent} does not begin with a list.`);
-            }
-        });
+}
 
-        return html;
-    }
+function ensureListsAreIntact(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const h3Elements = doc.querySelectorAll('h3');
 
-    	function proceedWithFormatting() {
-	    var inputContent = document.getElementById('input').innerHTML;
-	    document.getElementById('initialHtmlOutput').value = inputContent;
+	h3Elements.forEach(h3 => {
+		const nextElement = h3.nextElementSibling;
+		if (!nextElement || (nextElement.tagName !== 'UL' && nextElement.tagName !== 'OL')) {
+			console.error(`Error: ${h3.textContent} does not begin with a list.`);
+		}
+	});
 
-	    // Step 1: Apply Transformations
-	    var transformedContent = applyTransformations(inputContent, transformations, config);
-	    console.log("HTML after applying transformations:", transformedContent);
+	return html;
+}
 
-	    // Step 2: Ensure lists are intact
-	    transformedContent = ensureListsAreIntact(transformedContent);
-	    console.log("HTML after ensuring lists are intact:", transformedContent);
+function proceedWithFormatting() {
+	var inputContent = document.getElementById('input').innerHTML;
+	document.getElementById('initialHtmlOutput').value = inputContent;
 
-	    // Step 3: Integrate the template content in place under respective h3 headings
-	    var intermediateHtml = integrateTemplateContentInPlace(transformedContent, config);
-	    console.log("HTML after integrating template content:", intermediateHtml);
+	// Step 1: Apply Transformations
+	var transformedContent = applyTransformations(inputContent, transformations, config);
+	console.log("HTML after applying transformations:", transformedContent);
 
-	    // Step 4: Remove marked elements first
-	    var htmlAfterRemovingElements = removeMarkedElements(intermediateHtml);
-	    console.log("HTML after removeMarkedElements:", htmlAfterRemovingElements);  // Log after removeMarkedElements
+	// Step 2: Ensure lists are intact
+	transformedContent = ensureListsAreIntact(transformedContent);
+	console.log("HTML after ensuring lists are intact:", transformedContent);
 
-	    // Step 4.5: Remove all aria-level attributes next
-	    var finalHtml = removeAllAriaLevels(htmlAfterRemovingElements);
-	    console.log("HTML after removeAllAriaLevels:", finalHtml);  // Log after removeAllAriaLevels
+	// Step 3: Integrate the template content in place under respective h3 headings
+	var intermediateHtml = integrateTemplateContentInPlace(transformedContent, config);
+	console.log("HTML after integrating template content:", intermediateHtml);
 
-	    // Step 5: Clean up any remaining empty elements
-	    finalHtml = transformations.removeEmptyElements(finalHtml, config); // Invoke removeEmptyElements here
-	    console.log("HTML after removing empty elements:", finalHtml);  // Log after removing empty elements
+	// Step 4: Remove marked elements first
+	var htmlAfterRemovingElements = removeMarkedElements(intermediateHtml);
+	console.log("HTML after removeMarkedElements:", htmlAfterRemovingElements); // Log after removeMarkedElements
 
-	    // Step 6: Output the final HTML to the textarea and rendered div
-	    document.getElementById('testOutput').value = finalHtml;
-	    document.getElementById('renderedTestOutput').innerHTML = finalHtml;
+	// Step 4.5: Remove all aria-level attributes next
+	var finalHtml = removeAllAriaLevels(htmlAfterRemovingElements);
+	console.log("HTML after removeAllAriaLevels:", finalHtml); // Log after removeAllAriaLevels
 
-	    // Step 7: Build and display the accordion
-	    buildAndDisplayAccordion(finalHtml);
-	}
-	
-    	function segmentContentByH2(html) {
-	    const parser = new DOMParser();
-	    const doc = parser.parseFromString(html, 'text/html');
-	    const sections = [];
-	    let currentSection = null;
+	// Step 5: Clean up any remaining empty elements
+	finalHtml = transformations.removeEmptyElements(finalHtml, config); // Invoke removeEmptyElements here
+	console.log("HTML after removing empty elements:", finalHtml); // Log after removing empty elements
 
-	    Array.from(doc.body.children).forEach(child => {
-		   if (child.tagName === 'H2') {
-			  if (currentSection) {
-				 sections.push(currentSection);
-			  }
-			  currentSection = {
-				 title: child.textContent,
-				 content: '',
-				 subSections: []
-			  };
-		   } else if (currentSection) {
-			  if (child.tagName === 'H3' && /^\s*Week \d+/i.test(child.textContent.trim())) {
-				 currentSection.subSections.push({
+	// Step 6: Output the final HTML to the textarea and rendered div
+	document.getElementById('testOutput').value = finalHtml;
+	document.getElementById('renderedTestOutput').innerHTML = finalHtml;
+
+	// Step 7: Build and display the accordion
+	buildAndDisplayAccordion(finalHtml);
+}
+
+function segmentContentByH2(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const sections = [];
+	let currentSection = null;
+
+	Array.from(doc.body.children).forEach(child => {
+		if (child.tagName === 'H2') {
+			if (currentSection) {
+				sections.push(currentSection);
+			}
+			currentSection = {
+				title: child.textContent,
+				content: '',
+				subSections: []
+			};
+		} else if (currentSection) {
+			if (child.tagName === 'H3' && /^\s*Week \d+/i.test(child.textContent.trim())) {
+				currentSection.subSections.push({
 					title: child.textContent.trim(),
 					content: ''
-				 });
-			  } else if (currentSection.subSections.length > 0) {
-				 currentSection.subSections[currentSection.subSections.length - 1].content += child.outerHTML;
-			  } else {
-				 currentSection.content += child.outerHTML;
-			  }
-		   }
-	    });
+				});
+			} else if (currentSection.subSections.length > 0) {
+				currentSection.subSections[currentSection.subSections.length - 1].content += child.outerHTML;
+			} else {
+				currentSection.content += child.outerHTML;
+			}
+		}
+	});
 
-	    if (currentSection) {
-		   sections.push(currentSection);
-	    }
-
-	    return sections;
+	if (currentSection) {
+		sections.push(currentSection);
 	}
 
-	function removeMarkedElements(html) {
-	    const parser = new DOMParser();
-	    const doc = parser.parseFromString(html, 'text/html');
-	    const elementsToRemove = doc.querySelectorAll('.marked-for-removal');
-	    elementsToRemove.forEach(element => element.remove());
-	    return doc.body.innerHTML; // Return the modified HTML
+	return sections;
+}
+
+function removeMarkedElements(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const elementsToRemove = doc.querySelectorAll('.marked-for-removal');
+	elementsToRemove.forEach(element => element.remove());
+	return doc.body.innerHTML; // Return the modified HTML
+}
+
+function removeAllAriaLevels(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const liElements = doc.querySelectorAll('li');
+
+	liElements.forEach(li => {
+		li.removeAttribute('aria-level');
+	});
+	console.log("HTML before removing marked elements:", html); // Log before removing marked elements
+	return doc.body.innerHTML; // Return the modified HTML
+}
+
+function addEventListeners() {
+	document.getElementById('formatButton').addEventListener('click', function () {
+		openModal();
+	});
+}
+
+document.addEventListener('DOMContentLoaded', addEventListeners);
+
+// Modal functionality
+var modal = document.getElementById("myModal");
+var span = document.getElementsByClassName("close")[0];
+var submitBtn = document.getElementById("submitUrl");
+var focusQuestionIconURL = "";
+
+// Open the modal
+function openModal() {
+	modal.style.display = "block";
+}
+
+// Close the modal
+span.onclick = function () {
+	modal.style.display = "none";
+}
+
+// Close the modal when clicking outside of it
+window.onclick = function (event) {
+	if (event.target == modal) {
+		modal.style.display = "none";
 	}
+}
 
-     function removeAllAriaLevels(html) {
-	    const parser = new DOMParser();
-	    const doc = parser.parseFromString(html, 'text/html');
-	    const liElements = doc.querySelectorAll('li');
+// Store the URL when submitted and proceed with formatting
+submitBtn.onclick = function () {
+	focusQuestionIconURL = document.getElementById("iconUrlInput").value;
+	console.log("Focus Question Icon URL:", focusQuestionIconURL);
+	modal.style.display = "none";
+	proceedWithFormatting();
+}
 
-	    liElements.forEach(li => {
-		   li.removeAttribute('aria-level');
-	    });
-console.log("HTML before removing marked elements:", html);  // Log before removing marked elements
-	    return doc.body.innerHTML; // Return the modified HTML
-	}
+function setupAccordion() {
+	var acc = document.getElementsByClassName("accordion");
+	var subAcc = document.getElementsByClassName("sub-accordion");
+	var activeAccordion = null; // Track the active main accordion
+	var activeSubAccordion = null; // Track the active sub-accordion
 
-     function addEventListeners() {
-        document.getElementById('formatButton').addEventListener('click', function() {
-            openModal();
-        });
-    }
-
-     document.addEventListener('DOMContentLoaded', addEventListeners);
-        
-    	// Modal functionality
-    	var modal = document.getElementById("myModal");
-    	var span = document.getElementsByClassName("close")[0];
-    	var submitBtn = document.getElementById("submitUrl");
-    	var focusQuestionIconURL = "";
-
-    	// Open the modal
-    	function openModal() {
-        modal.style.display = "block";
-    }
-
-    	// Close the modal
-    	span.onclick = function() {
-        modal.style.display = "none";
-    }
-
-    	// Close the modal when clicking outside of it
-    	window.onclick = function(event) {
-        if (event.target == modal) {
-            modal.style.display = "none";
-        }
-    }
-
-    	// Store the URL when submitted and proceed with formatting
-    	submitBtn.onclick = function() {
-        focusQuestionIconURL = document.getElementById("iconUrlInput").value;
-        console.log("Focus Question Icon URL:", focusQuestionIconURL);
-        modal.style.display = "none";
-        proceedWithFormatting();
-    }
-
-    	function setupAccordion() {
-	    var acc = document.getElementsByClassName("accordion");
-	    var subAcc = document.getElementsByClassName("sub-accordion");
-	    var activeAccordion = null; // Track the active main accordion
-	    var activeSubAccordion = null;  // Track the active sub-accordion
-
-	    // Event listener for main accordions
-	    for (var i = 0; i < acc.length; i++) {
-		   acc[i].addEventListener("click", function(e) {
-			  if (!this.classList.contains('sub-accordion')) {
-				 // Close the currently active main accordion if it's not the one being clicked
-				 if (activeAccordion && activeAccordion !== this) {
+	// Event listener for main accordions
+	for (var i = 0; i < acc.length; i++) {
+		acc[i].addEventListener("click", function (e) {
+			if (!this.classList.contains('sub-accordion')) {
+				// Close the currently active main accordion if it's not the one being clicked
+				if (activeAccordion && activeAccordion !== this) {
 					activeAccordion.classList.remove("active");
 					activeAccordion.nextElementSibling.style.display = "none";
-				 }
-				 // Toggle the clicked main accordion
-				 this.classList.toggle("active");
-				 var panel = this.nextElementSibling;
-				 if (panel.style.display === "block") {
+				}
+				// Toggle the clicked main accordion
+				this.classList.toggle("active");
+				var panel = this.nextElementSibling;
+				if (panel.style.display === "block") {
 					panel.style.display = "none";
-				 } else {
+				} else {
 					panel.style.display = "block";
-				 }
-				 // Update the activeAccordion to the current one if it's expanded, or null if it's collapsed
-				 activeAccordion = this.classList.contains("active") ? this : null;
+				}
+				// Update the activeAccordion to the current one if it's expanded, or null if it's collapsed
+				activeAccordion = this.classList.contains("active") ? this : null;
 
-				 // Close any open sub-accordion within the active main accordion
-				 if (activeSubAccordion && activeSubAccordion.parentElement.parentElement !== panel) {
+				// Close any open sub-accordion within the active main accordion
+				if (activeSubAccordion && activeSubAccordion.parentElement.parentElement !== panel) {
 					activeSubAccordion.classList.remove("active");
 					activeSubAccordion.nextElementSibling.style.display = "none";
 					activeSubAccordion = null;
-				 }
-			  }
-		   });
-	    }
-
-	    // Event listener for sub accordions
-	    for (var j = 0; j < subAcc.length; j++) {
-		   subAcc[j].addEventListener("click", function(e) {
-			  e.stopPropagation(); // Stop the event from bubbling up to parent elements
-			  // Close the previously active sub-accordion if it's not the one being clicked
-			  if (activeSubAccordion && activeSubAccordion !== this) {
-				 activeSubAccordion.classList.remove("active");
-				 activeSubAccordion.nextElementSibling.style.display = "none";
-			  }
-			  // Toggle the clicked sub-accordion
-			  this.classList.toggle("active");
-			  var subPanel = this.nextElementSibling;
-			  if (subPanel.style.display === "block") {
-				 subPanel.style.display = "none";
-			  } else {
-				 subPanel.style.display = "block";
-			  }
-			  // Update the activeSubAccordion to the current one if it's expanded, or null if it's collapsed
-			  activeSubAccordion = this.classList.contains("active") ? this : null;
-		   });
-	    }
+				}
+			}
+		});
 	}
 
-	document.addEventListener('DOMContentLoaded', setupAccordion);
-
-
-
-	// Function to add copy functionality
-	function addCopyFunctionality(button, textArea) {
-	    button.addEventListener('click', function() {
-		   textArea.select();
-		   document.execCommand('copy');
-		   alert('Code copied to clipboard');
-	    });
+	// Event listener for sub accordions
+	for (var j = 0; j < subAcc.length; j++) {
+		subAcc[j].addEventListener("click", function (e) {
+			e.stopPropagation(); // Stop the event from bubbling up to parent elements
+			// Close the previously active sub-accordion if it's not the one being clicked
+			if (activeSubAccordion && activeSubAccordion !== this) {
+				activeSubAccordion.classList.remove("active");
+				activeSubAccordion.nextElementSibling.style.display = "none";
+			}
+			// Toggle the clicked sub-accordion
+			this.classList.toggle("active");
+			var subPanel = this.nextElementSibling;
+			if (subPanel.style.display === "block") {
+				subPanel.style.display = "none";
+			} else {
+				subPanel.style.display = "block";
+			}
+			// Update the activeSubAccordion to the current one if it's expanded, or null if it's collapsed
+			activeSubAccordion = this.classList.contains("active") ? this : null;
+		});
 	}
+}
 
-	// Function to build the accordion
-	function buildAccordion(sections) {
-	    const accordionContainer = document.createElement('div');
+document.addEventListener('DOMContentLoaded', setupAccordion);
 
-	    sections.forEach(section => {
-		   const accordionButton = document.createElement('div');
-		   accordionButton.classList.add('accordion');
-		   accordionButton.textContent = section.title;
 
-		   const panel = document.createElement('div');
-		   panel.classList.add('panel');
+// Function to add copy functionality
+function addCopyFunctionality(button, textArea) {
+	button.addEventListener('click', function () {
+		textArea.select();
+		document.execCommand('copy');
+		alert('Code copied to clipboard');
+	});
+}
 
-		   // Create the container for code and preview, side-by-side
-		   const codePreviewContainer = document.createElement('div');
-		   codePreviewContainer.classList.add('code-preview-container');
+// Function to build the accordion
+function buildAccordion(sections) {
+	const accordionContainer = document.createElement('div');
 
-		   // Only create and append the text area and rendered output if there is content
-		   if (section.content.trim()) {
-			  // Create the text area for the code view
-			  const codeTextArea = document.createElement('textarea');
-			  codeTextArea.value = section.content;
-			  codeTextArea.rows = 5;
+	sections.forEach(section => {
+		const accordionButton = document.createElement('div');
+		accordionButton.classList.add('accordion');
+		accordionButton.textContent = section.title;
 
-			  // Create the copy button
-			  const copyButton = document.createElement('button');
-			  copyButton.textContent = 'Copy Code';
-			  copyButton.classList.add('copy-btn');
+		const panel = document.createElement('div');
+		panel.classList.add('panel');
 
-			  // Add copy functionality to the button
-			  addCopyFunctionality(copyButton, codeTextArea);
+		// Create the container for code and preview, side-by-side
+		const codePreviewContainer = document.createElement('div');
+		codePreviewContainer.classList.add('code-preview-container');
 
-			  // Create the div for the rendered output
-			  const renderedOutput = document.createElement('div');
-			  renderedOutput.classList.add('rendered-output');
-			  renderedOutput.innerHTML = section.content;
+		// Only create and append the text area and rendered output if there is content
+		if (section.content.trim()) {
+			// Create the text area for the code view
+			const codeTextArea = document.createElement('textarea');
+			codeTextArea.value = section.content;
+			codeTextArea.rows = 5;
 
-			  // Append the code view and rendered output to the container
-			  const codeContainer = document.createElement('div');
-			  codeContainer.classList.add('code-container');
-			  codeContainer.appendChild(codeTextArea);
-			  codeContainer.appendChild(copyButton);
+			// Create the copy button
+			const copyButton = document.createElement('button');
+			copyButton.textContent = 'Copy Code';
+			copyButton.classList.add('copy-btn');
 
-			  codePreviewContainer.appendChild(codeContainer);
-			  codePreviewContainer.appendChild(renderedOutput);
+			// Add copy functionality to the button
+			addCopyFunctionality(copyButton, codeTextArea);
 
-			  // Append the container to the panel
-			  panel.appendChild(codePreviewContainer);
-		   }
+			// Create the div for the rendered output
+			const renderedOutput = document.createElement('div');
+			renderedOutput.classList.add('rendered-output');
+			renderedOutput.innerHTML = section.content;
 
-		   // Append sub-accordions if there are any
-		   if (section.subSections.length > 0) {
-			  section.subSections.forEach(subSection => {
-				 const subAccordionButton = document.createElement('div');
-				 subAccordionButton.classList.add('sub-accordion');
-				 subAccordionButton.textContent = subSection.title;
+			// Append the code view and rendered output to the container
+			const codeContainer = document.createElement('div');
+			codeContainer.classList.add('code-container');
+			codeContainer.appendChild(codeTextArea);
+			codeContainer.appendChild(copyButton);
 
-				 const subPanel = document.createElement('div');
-				 subPanel.classList.add('panel');
+			codePreviewContainer.appendChild(codeContainer);
+			codePreviewContainer.appendChild(renderedOutput);
 
-				 // Create the container for code and preview, side-by-side
-				 const subCodePreviewContainer = document.createElement('div');
-				 subCodePreviewContainer.classList.add('code-preview-container');
+			// Append the container to the panel
+			panel.appendChild(codePreviewContainer);
+		}
 
-				 // Only create and append the text area and rendered output if there is content
-				 if (subSection.content.trim()) {
+		// Append sub-accordions if there are any
+		if (section.subSections.length > 0) {
+			section.subSections.forEach(subSection => {
+				const subAccordionButton = document.createElement('div');
+				subAccordionButton.classList.add('sub-accordion');
+				subAccordionButton.textContent = subSection.title;
+
+				const subPanel = document.createElement('div');
+				subPanel.classList.add('panel');
+
+				// Create the container for code and preview, side-by-side
+				const subCodePreviewContainer = document.createElement('div');
+				subCodePreviewContainer.classList.add('code-preview-container');
+
+				// Only create and append the text area and rendered output if there is content
+				if (subSection.content.trim()) {
 					// Create the text area for the code view
 					const subCodeTextArea = document.createElement('textarea');
 					subCodeTextArea.value = subSection.content;
@@ -1229,35 +1234,36 @@ console.log("HTML before removing marked elements:", html);  // Log before remov
 
 					// Append the container to the sub-panel
 					subPanel.appendChild(subCodePreviewContainer);
-				 }
+				}
 
-				 // Append the sub-accordion button and sub-panel to the main panel
-				 panel.appendChild(subAccordionButton);
-				 panel.appendChild(subPanel);
-			  });
-		   }
+				// Append the sub-accordion button and sub-panel to the main panel
+				panel.appendChild(subAccordionButton);
+				panel.appendChild(subPanel);
+			});
+		}
 
-		   // Append the button and panel to the container
-		   accordionContainer.appendChild(accordionButton);
-		   accordionContainer.appendChild(panel);
-	    });
-
-	    return accordionContainer;
-	}
-
-	function buildAndDisplayAccordion(finalHtml) {
-	    const sections = segmentContentByH2(finalHtml);
-	    const accordion = buildAccordion(sections);
-	    const outputBox = document.getElementById('accordionOutputBox');
-	    outputBox.innerHTML = ''; // Clear any existing content
-	    outputBox.appendChild(accordion);
-	    setupAccordion();
-	}
-
-
-	document.addEventListener('DOMContentLoaded', function() {
-	    setupAccordion();
+		// Append the button and panel to the container
+		accordionContainer.appendChild(accordionButton);
+		accordionContainer.appendChild(panel);
 	});
+
+	return accordionContainer;
+}
+
+function buildAndDisplayAccordion(finalHtml) {
+	const sections = segmentContentByH2(finalHtml);
+	const accordion = buildAccordion(sections);
+	const outputBox = document.getElementById('accordionOutputBox');
+	outputBox.innerHTML = ''; // Clear any existing content
+	outputBox.appendChild(accordion);
+	setupAccordion();
+}
+
+
+document.addEventListener('DOMContentLoaded', function () {
+	setupAccordion();
+});
+// JavaScript Document
 
 </script>
 </body>
