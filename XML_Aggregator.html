@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XML &amp; HTML Course Content Extractor</title>
+<style>
+body {
+	font-family: "Open Sans", "Gill Sans", "Gill Sans MT", "Myriad Pro", "DejaVu Sans Condensed", Helvetica, Arial, "sans-serif"sans-serif;
+	margin: 20px;
+}
+h1 {
+	color: #000000;
+	font-size: 20pt;
+}
+h2 {
+	color: #990000;
+	font-size: 16pt;
+}
+.content-box {
+	border: 1px solid #ccc;
+	padding: 10px;
+	margin-top: 20px;
+	background: #f9f9f9;
+	padding: 15px;
+}
+button {
+	margin-top: 10px;
+	padding: 8px 12px;
+	background: #990000;
+	color: white;
+	border: none;
+	cursor: pointer;
+}
+button:hover {
+	background: #1A5276;
+}
+.preview-content {
+	white-space: normal;
+}
+#copyButton {
+	margin-right: 10px;
+}
+/* Tab container */
+.tab-container {
+	margin-bottom: 20px;
+	border-bottom: 2px solid #ccc;
+}
+/* Tab buttons */
+.tab-buttons {
+	display: flex;
+	border-bottom: 1px solid #ccc;
+}
+.tab-button {
+	background: #555555;
+	border: none;
+	padding: 10px 15px;
+	cursor: pointer;
+	font-size: 14px;
+	transition: background 0.3s;
+}
+.tab-button.active {
+	background: #990000;
+	color: white;
+	font-weight: bold;
+}
+/* Tab content */
+.tab-content-container {
+	padding: 15px;
+	background: #f9f9f9;
+}
+.tab-content {
+	display: none;
+}
+.tab-content.active {
+	display: block;
+}
+</style>
+</head>
+<body>
+<h1>Aggregate Exported Canvas Files (For the CMGT Program)</h1>
+<!-- Tabbed Instructions -->
+<div class="tab-container">
+	<div class="tab-buttons">
+		<button class="tab-button active" onclick="openTab(event, 'tab1')">Export from Canvas</button>
+		<button class="tab-button" onclick="openTab(event, 'tab2')">Group the Files</button>
+		<button class="tab-button" onclick="openTab(event, 'tab3')">Use the Aggregator</button>
+	</div>
+	<div class="tab-content-container">
+		<div id="tab1" class="tab-content active">
+			<h2><strong>Export from Canvas and Extract Files</strong> </h2>
+			<ol>
+				<li>Open the course in Canvas and navigate to <strong>Settings.</strong></li>
+				<li>Select <strong>Export Course Content. </strong>
+					<ol>
+						<li>If this is the first time you've exported the course, you will not see any files here. If you do see an export file, you can download it directly. Otherwise, your download will show up here when it is ready.</li>
+					</ol>
+				</li>
+				<li>Select the Export file to download it. This will take a little while.</li>
+				<li>Once the course is downloaded, navigate to its location and change the extension from .imscc to .zip.</li>
+				<li>Extract the .zip folder to your file directory.</li>
+				<li>Move on to &quot;Group the Files.&quot;</li>
+			</ol>
+		</div>
+		<div id="tab2" class="tab-content">
+			<h2>Group the Files</h2>
+			<ol>
+				<li>Navigate to the folder and create a <strong>New Folder</strong> inside it. I've called it &quot;All Files.&quot;
+					<ol>
+						<li>You will be moving files into this folder, so set your workspace up to do this in a way that works for you. I will open the new folder in a new window so that I can drag my files over.</li>
+					</ol>
+				</li>
+				<li>In the parent file where your extracted files are housed, navigate to the<strong> Search</strong> area. In Windows, this is a bar near the top of the files window.</li>
+				<li>Search for .xml and move all the found files to your new folder.</li>
+				<li>Do the same for .html files.
+					<ol>
+						<li>If you encounter an error about duplicate file names, opt to <strong>keep both files</strong>.</li>
+					</ol>
+				</li>
+				<li>Now you have a single folder that contains all of the .xml and .html files.</li>
+				<li>Move on to "Use the Aggregator"</li>
+			</ol>
+			
+		</div>
+		<div id="tab3" class="tab-content">
+			<h2>Use the Aggregator</h2>
+			<ol>
+				<li>Select the <strong>Choose Files</strong> button and navigate to your new folder where you've collected the files.</li>
+				<li>Select <strong>Process Files</strong> to extract and format content.</li>
+				<li>Once processing is complete, review the results.</li>
+				<li>Select <strong>Copy Content</strong> to copy the formatted text and paste it into a Google Document.</li>
+			</ol>
+		</div>
+	</div>
+</div>
+<input type="file" id="files" multiple accept=".xml,.html">
+<button onclick="processFiles()">Process Files</button>
+<button id="copyButton" onclick="copyToClipboard()" style="display: none;">Copy Content</button>
+<div id="output" class="content-box"></div>
+<script>
+function openTab(event, tabId) {
+	// Hide all tab content
+	let tabContents = document.getElementsByClassName("tab-content");
+	for (let content of tabContents) {
+		content.classList.remove("active");
+	}
+
+	// Remove active class from all buttons
+	let tabButtons = document.getElementsByClassName("tab-button");
+	for (let button of tabButtons) {
+		button.classList.remove("active");
+	}
+
+	// Show the selected tab and activate the button
+	document.getElementById(tabId).classList.add("active");
+	event.currentTarget.classList.add("active");
+}
+async function processFiles() {
+	const files = document.getElementById("files").files;
+	if (files.length === 0) {
+		alert("Please select XML or HTML files.");
+		return;
+	}
+
+	let courseContent = [];
+
+	for (let file of files) {
+		const text = await file.text();
+		const parser = new DOMParser();
+		let doc, title, content;
+
+		if (file.name.endsWith(".xml")) {
+			doc = parser.parseFromString(text, "text/xml");
+
+			// Extract title from XML
+			let titleElement = doc.getElementsByTagName("title")[0];
+			title = titleElement ? titleElement.textContent.trim() : "Untitled XML Document";
+
+			// Extract content from XML
+			let textElement = doc.getElementsByTagName("text")[0];
+			content = textElement ? textElement.textContent : "(No content available)";
+
+		} else if (file.name.endsWith(".html")) {
+			doc = parser.parseFromString(text, "text/html");
+
+			// Extract title from HTML
+			let titleElement = doc.getElementsByTagName("title")[0];
+			title = titleElement ? titleElement.textContent.trim() : "Untitled HTML Document";
+
+			// Extract the full body content
+			let bodyElement = doc.getElementsByTagName("body")[0];
+			content = bodyElement ? bodyElement.innerHTML : "(No content available)";
+		}
+
+		// Decode HTML content properly and adjust heading levels
+		let tempDiv = document.createElement("div");
+		tempDiv.innerHTML = content;
+		let decodedContent = adjustHeadings(tempDiv.innerHTML);
+
+
+		// Extract week number from title if present
+		let weekMatch = title.match(/Week (\d+)/i);
+		let weekNumber = weekMatch ? parseInt(weekMatch[1]) : 999;
+
+		function adjustHeadings(content) {
+			// Create a temporary div to manipulate the HTML
+			let tempDiv = document.createElement("div");
+			tempDiv.innerHTML = content;
+
+			// Convert the live collection to an array to prevent skipping elements
+			let h2Headings = Array.from(tempDiv.getElementsByTagName("h2"));
+			for (let heading of h2Headings) {
+				heading.outerHTML = `<h3>${heading.innerHTML}</h3>`;
+			}
+
+			return tempDiv.innerHTML;
+		}
+
+		// Store extracted data
+		courseContent.push({
+			weekNumber,
+			title,
+			content: decodedContent
+		});
+	}
+
+	// Sort content by week number
+	sortCourseContent(courseContent);
+
+	function isMeaninglessContent(content) {
+		// Create a temporary element to analyze the inner text
+		let tempDiv = document.createElement("div");
+		tempDiv.innerHTML = content;
+
+
+		// Extract the plain text from the content (ignores HTML tags)
+		let textContent = tempDiv.textContent.trim();
+
+		// Regex to match isolated week references, e.g., "Week 01"
+		let weekOnlyPattern = /^Week \d+$/i;
+
+		// If content is empty, only whitespace, or just a "Week X" string, exclude it
+		return textContent === "" || weekOnlyPattern.test(textContent);
+	}
+
+
+	// Display formatted content
+	let outputDiv = document.getElementById("output");
+	outputDiv.innerHTML = "<h1>Course Content Preview</h1>";
+
+	for (let item of courseContent) {
+		if (item.content !== "(No content available)" && item.content.trim() !== "" && !isMeaninglessContent(item.content)) {
+			let section = document.createElement("div");
+			section.innerHTML = `<h2>${item.title}</h2>${item.content}`;
+			section.classList.add("preview-content");
+			outputDiv.appendChild(section);
+		}
+	}
+
+
+	// Show the copy button
+	document.getElementById("copyButton").style.display = "inline-block";
+}
+
+function copyToClipboard() {
+	const outputDiv = document.getElementById("output");
+
+	// Create a range to select all content
+	const range = document.createRange();
+	range.selectNodeContents(outputDiv);
+
+	// Copy to clipboard
+	const selection = window.getSelection();
+	selection.removeAllRanges();
+	selection.addRange(range);
+	document.execCommand("copy");
+
+	// Confirm copy action
+	alert("Course content copied!");
+	selection.removeAllRanges();
+}
+
+function sortCourseContent(courseContent) {
+    // Define sorting priority for specific non-weekly items
+    const priorityTitles = [
+        "Course Overview",
+        "General Discussion",
+        "Instructor Announcements",
+        "Live Session Information"
+    ];
+
+    // Define sorting priority based on title categories
+    const categoryOrder = [
+        { keyword: "Overview", order: 1 },
+        { keyword: "Learning Materials", order: 2 },
+        { keyword: "Live Session", order: 3 },
+        { keyword: "Discussion", order: 4 },  // Numeric sorting applied within
+        { keyword: "Faculty Notes", order: 5 },
+        { keyword: "Assignment", order: 6 }, // Numeric sorting applied within
+        { keyword: "Checkpoints", order: 7 }, // Numeric sorting applied within
+        { keyword: "", order: 999 } // Everything else goes at the end
+    ];
+
+    courseContent.sort((a, b) => {
+        // Check if either item is in the priority list
+        let priorityA = priorityTitles.includes(a.title) ? priorityTitles.indexOf(a.title) : 999;
+        let priorityB = priorityTitles.includes(b.title) ? priorityTitles.indexOf(b.title) : 999;
+
+        // If one of them is in the priority list, move it to the top
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
+        // First, sort by week number (items with a week number should come after priorities)
+        if (a.weekNumber !== b.weekNumber) {
+            return a.weekNumber - b.weekNumber;
+        }
+
+        // Find category order for both items
+        let categoryA = categoryOrder.find(c => a.title.includes(c.keyword)) || { order: 999 };
+        let categoryB = categoryOrder.find(c => b.title.includes(c.keyword)) || { order: 999 };
+
+        // Sort by predefined category order
+        if (categoryA.order !== categoryB.order) {
+            return categoryA.order - categoryB.order;
+        }
+
+        // Extract the first numeric value (e.g., "Discussion 02" should return 2)
+        let numA = extractFirstNumber(a.title, categoryA.keyword);
+        let numB = extractFirstNumber(b.title, categoryB.keyword);
+
+        return numA - numB;
+    });
+}
+
+// Helper function to extract the FIRST number that appears AFTER the keyword
+function extractFirstNumber(title, keyword) {
+    let regex = new RegExp(keyword + " (\\d+)", "i"); // Find number after the keyword
+    let match = title.match(regex);
+    return match ? parseInt(match[1], 10) : 999; // Convert to integer, default to 999 if not found
+}
+
+
+    </script>
+</body>
+</html>
