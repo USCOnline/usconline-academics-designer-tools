@@ -514,7 +514,14 @@ const transformations = {
 		return html.replace(config.patterns.h1ToPStrong, config.replacements.h1ToPStrong);
 	},
 	promoteHeadings(html, config) {
-		return html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
+		// First Promotion: Generic heading promotion (h5 -> h4, h4 -> h3, etc.)
+		html = html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
+
+		// Second Promotion: Upgrade specific <h4> to <h3> if they contain target keywords
+		const keywordPattern = /<h4([^>]*)>(.*?(?:Instructions|Formatting|Rubric).*?)<\/h4>/gi;
+		html = html.replace(keywordPattern, '<h3$1>$2</h3>');
+
+		return html;
 	},
 	filterRelevantH3Sections(html, config) {
 		const parser = new DOMParser();
