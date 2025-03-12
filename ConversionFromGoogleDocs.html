@@ -224,8 +224,8 @@ const config = {
 		h1ToPStrong: /<h1>(.*?)<\/h1>/gi,
 		promoteHeadings: /<h([2-6])([^>]*)>(.*?)<\/h\1>/gi,
 		removeH3Sections: /Week\s*\d+\s*:?\s*(Topics)/i,
-		removeH2Sections: /\s*(Course Description|Course Topics)/i,
-		noteParagraph: /<p>\*?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|\*Note: )\s*(.*)<\/p>/i,
+		removeH2Sections: /\s*(Course Description|Course Topics|Course Preparation)/i,
+		noteParagraph: /<p>(<strong>\*<\/strong>|<strong><em>\*<\/em><\/strong>|<em><strong>\*<\/strong><\/em>|\*?)?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|Note:)\s*(.*)<\/p>/i,
 		readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia)/i,
 		resourcesH3: /^\s*Week\s*\d+\s*(Resource|Resources)/i,
 
