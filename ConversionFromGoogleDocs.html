@@ -461,29 +461,79 @@ const transformations = {
 		const doc = parser.parseFromString(html, 'text/html');
 
 		const listItems = Array.from(doc.querySelectorAll('li[aria-level]'));
-		let currentList = null;
+		const levelMap = {}; // Keeps track of the last seen <li> for each aria-level
+
+		console.log("Starting renestListsByAriaLevel...");
+		console.log("Initial List Items:", listItems.map(li => li.outerHTML));
 
 		listItems.forEach(item => {
 			const ariaLevel = parseInt(item.getAttribute('aria-level'));
+			console.log(`\nProcessing <li> with aria-level=${ariaLevel}:`, item.outerHTML);
 
+			// Log current state of levelMap before changes
+			console.log("Current levelMap:", Object.keys(levelMap).map(lvl => ({
+				level: lvl,
+				itemText: levelMap[lvl] ? levelMap[lvl].textContent.trim() : "None"
+			})));
+
+			// If it's an aria-level 1, reset tracking for deeper levels
 			if (ariaLevel === 1) {
-				currentList = item; // Set the currentList to the current aria-level 1 <li>
-			} else if (ariaLevel === 2) {
-				if (currentList && currentList.getAttribute('aria-level') === '1') {
-					let ul = currentList.querySelector('ul');
+				console.log(`Setting aria-level=1 item as root: ${item.textContent.trim()}`);
+				levelMap[1] = item; // Update only for level 1
+			} else {
+				// Find the closest valid parent at a lower aria-level
+				let parentLevel = ariaLevel - 1;
+				while (parentLevel > 0 && !levelMap[parentLevel]) {
+					parentLevel--; // Traverse upwards until we find a valid parent
+				}
 
-					if (!ul) {
-						ul = document.createElement('ul');
-						currentList.appendChild(ul);
+				const parentItem = levelMap[parentLevel];
+
+				if (parentItem) {
+					console.log(`Found parent at aria-level=${parentLevel}: ${parentItem.textContent.trim()}`);
+
+					// Determine whether the parent list is an <ol> or <ul>
+					let parentListType = parentItem.closest('ol') ? 'ol' : 'ul';
+
+					let nestedList = parentItem.querySelector(parentListType);
+					if (!nestedList) {
+						nestedList = document.createElement(parentListType);
+						parentItem.appendChild(nestedList);
+						console.log(`Created new <${parentListType}> under parent: ${parentItem.textContent.trim()}`);
 					}
 
-					ul.appendChild(item); // Move the aria-level 2 <li> under the <ul>
+					nestedList.appendChild(item);
+					console.log(`Nested <li> (aria-level=${ariaLevel}) under <li> (aria-level=${parentLevel})`);
+
+					// **Log before updating levelMap to confirm correctness**
+					console.log(`Before updating levelMap[${ariaLevel}], its parent is: ${item.parentNode.outerHTML}`);
+
+					// **Only update levelMap if this is a new parent for deeper levels**
+					if (!levelMap[ariaLevel] || levelMap[ariaLevel].parentNode !== nestedList) {
+						levelMap[ariaLevel] = item;
+						console.log(`Updated levelMap[${ariaLevel}] to: ${item.textContent.trim()}`);
+					}
+				} else {
+					console.warn(`No valid parent found for <li aria-level="${ariaLevel}">:`, item.outerHTML);
 				}
 			}
+
+			// Log final state of levelMap after changes
+			console.log("Updated levelMap:", Object.keys(levelMap).map(lvl => ({
+				level: lvl,
+				itemText: levelMap[lvl] ? levelMap[lvl].textContent.trim() : "None"
+			})));
 		});
 
+		console.log("Final transformed HTML:", doc.body.innerHTML);
 		return doc.body.innerHTML;
 	},
+
+
+
+
+
+	
 	adjustExternalLinks(html, config) {
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(html, 'text/html');
@@ -519,7 +569,7 @@ const transformations = {
 
 		// Second Promotion: Upgrade specific <h4> to <h3> if they contain target keywords
 		const keywordPattern = /<h4([^>]*)>(.*?(?:Instructions|Formatting|Rubric).*?)<\/h4>/gi;
-		html = html.replace(keywordPattern, '<h3$1>$2</h3>');
+		html = html.replace(keywordPattern, '<h3$1 style="font-size: 14pt;"><strong>$2</strong></h3>');
 
 		return html;
 	},
