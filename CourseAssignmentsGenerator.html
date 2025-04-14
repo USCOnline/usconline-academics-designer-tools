@@ -92,6 +92,9 @@
         <textarea id="finalOutput" readonly></textarea>
         <button type="button" id="copyCode">Copy Code</button>
     </div>
+	
+	<div id="lastAdded" style="margin-top:10px; font-style:italic; color:#555;"></div>
+
 
 <script>
     // Variable to store the course code
@@ -119,41 +122,50 @@
     const assignments = [];
 
     // Function to add an assignment
-    function addAssignment() {
-        // Get the week number and assignment content from user inputs
-        const weekNumber = document.getElementById('weekNumber').value.trim();
-        const assignmentContent = document.getElementById('assignmentContent').value.trim();
+	function addAssignment() {
+		// Get the week number and assignment content from user inputs
+		const weekNumber = document.getElementById('weekNumber').value.trim();
+		const assignmentContent = document.getElementById('assignmentContent').value.trim();
 
-        // Validate inputs
-        if (!weekNumber || !assignmentContent) {
-            alert('Please enter a valid week number and assignment content.');
-            return false;
-        }
+		// Validate inputs
+		if (!weekNumber || !assignmentContent) {
+			alert('Please enter a valid week number and assignment content.');
+			return false;
+		}
 
-        // Parse the week number input to handle "x-x" format
-        let weekLabel = '';
-        const weekMatch = weekNumber.match(/^(\d+)(?:-(\d+))?$/);
-        if (weekMatch) {
-            const mainWeek = weekMatch[1];
-            const subWeek = weekMatch[2] ? `: Assignment ${weekMatch[2]}` : ': Assignment';
-            weekLabel = `Week ${mainWeek}${subWeek}`;
-        } else {
-            alert('Invalid week number format. Please use "X" or "X-X" (e.g., "4" or "4-1").');
-            return false;
-        }
+		// Parse the week number input to handle "x-x" format
+		let weekLabel = '';
+		const weekMatch = weekNumber.match(/^(\d+)(?:-(\d+))?$/);
+		if (weekMatch) {
+			const mainWeek = weekMatch[1];
+			const subWeek = weekMatch[2] ? `: Assignment ${weekMatch[2]}` : ': Assignment';
+			weekLabel = `Week ${mainWeek}${subWeek}`;
+		} else {
+			alert('Invalid week number format. Please use "X" or "X-X" (e.g., "4" or "4-1").');
+			return false;
+		}
 
-        // Store the assignment data
-        assignments.push({
-            week: weekLabel,
-            content: assignmentContent
-        });
+		// Store the assignment data
+		assignments.push({
+			week: weekLabel,
+			content: assignmentContent
+		});
 
-        // Clear the inputs for new entries
-        document.getElementById('weekNumber').value = '';
-        document.getElementById('assignmentContent').value = '';
+		// Update the "Last added" notation
+		updateLastAdded(weekLabel);
 
-        return true;
-    }
+		// Clear the inputs for new entries
+		document.getElementById('weekNumber').value = '';
+		document.getElementById('assignmentContent').value = '';
+
+		return true;
+	}
+	
+	// Function to update the last-added assignment notation
+	function updateLastAdded(weekLabel) {
+		document.getElementById('lastAdded').textContent = `Last added: ${weekLabel}`;
+	}
+
 
     // Event listener for the "Add Another" button
     document.getElementById('addAssignment').addEventListener('click', function() {
