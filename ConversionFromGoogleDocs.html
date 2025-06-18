@@ -528,12 +528,38 @@ const transformations = {
 		console.log("Final transformed HTML:", doc.body.innerHTML);
 		return doc.body.innerHTML;
 	},
+	removeInternalAssignmentAssetsSections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const headings = Array.from(doc.querySelectorAll('h3, h4, h5, h6'));
 
+		headings.forEach(heading => {
+			// Trim and compare heading text
+			if (/^internal assignment assets$/i.test(heading.textContent.trim())) {
+				// Get the current heading level
+				const currentLevel = parseInt(heading.tagName[1]);
 
+				// Remove heading itself
+				let toRemove = [heading];
 
+				// Start with the next sibling after the heading
+				let next = heading.nextElementSibling;
+				while (next) {
+					// If next is a heading of the same or higher level, stop
+					if (/^H[3-6]$/.test(next.tagName) && parseInt(next.tagName[1]) <= currentLevel) {
+						break;
+					}
+					toRemove.push(next);
+					next = next.nextElementSibling;
+				}
 
+				// Remove all collected elements
+				toRemove.forEach(el => el && el.parentNode && el.parentNode.removeChild(el));
+			}
+		});
 
-	
+		return doc.body.innerHTML;
+	},
 	adjustExternalLinks(html, config) {
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(html, 'text/html');
@@ -965,19 +991,17 @@ function generateTemplate(variables) {
 
 function applyTransformations(html, transformations, config) {
 	let transformedHtml = html;
+	// Remove "Internal Assignment Assets" sections FIRST
+	transformedHtml = transformations.removeInternalAssignmentAssetsSections(transformedHtml, config);
+
+	// Apply the rest (skip the new function to avoid double-calling)
 	Object.keys(transformations).forEach(transformation => {
-		// Check if the next transformation is 'removePatterns'
-		if (transformation === 'removePatterns') {
-			console.log(`HTML before 'removePatterns':\n`, transformedHtml);
-		}
-		// Apply the current transformation
+		if (transformation === 'removeInternalAssignmentAssetsSections') return;
 		transformedHtml = transformations[transformation](transformedHtml, config);
-		// Debug output after each transformation
-		//        console.log(`After ${transformation}:\n`, transformedHtml);
 	});
 	return transformedHtml;
-
 }
+
 
 function ensureListsAreIntact(html) {
 	const parser = new DOMParser();
