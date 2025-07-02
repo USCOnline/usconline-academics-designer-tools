@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Table Transformer</title>
+<style>
+body {
+	font-family: sans-serif;
+	padding: 1rem;
+	max-width: 800px;
+	margin: auto;
+}
+textarea {
+	width: 100%;
+	height: 200px;
+	margin-bottom: 1rem;
+	font-family: monospace;
+}
+button {
+	margin-right: 1rem;
+	padding: 0.5rem 1rem;
+}
+#weekInfoDisplay {
+	padding: 0.75rem;
+	background-color: #f1f1f1;
+	border-left: 4px solid #0077cc;
+	margin: 1rem 0;
+}
+#weekInfoDisplay strong {
+	display: block;
+	margin-bottom: 0.25rem;
+}
+.contenteditable-container {
+	display: block;
+	max-height: 200px;
+	padding: 15px;
+	border: 1px solid #ccc;
+	margin: 15px;
+	overflow: auto;
+}
+.contenteditable {
+	min-height: 200px;
+	outline: none;
+}
+#renderedPreview {
+	border: 1px solid #ccc;
+	background-color: #f9f9f9;
+	padding: 1rem;
+	margin-top: 2rem;
+}
+</style>
+</head>
+<body>
+<h1>Table to HTML Transformer</h1>
+<label for="inputHTML">Paste your table HTML here:</label>
+<div id="inputHTML">
+	<div class="contenteditable-container">
+		<div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
+	</div>
+</div>
+<button id="generateBtn">Generate</button>
+<div id="weekInfoDisplay">
+	<strong>Week Info:</strong>
+	<div id="weekInfoContent">(Nothing yet)</div>
+</div>
+<label for="outputHTML">Transformed HTML:</label>
+<textarea id="outputHTML" readonly></textarea>
+<button id="copyBtn">Copy Code</button>
+
+<!-- Rendered Preview -->
+<hr>
+<h2>Rendered Preview:</h2>
+<div id="renderedPreview">(Nothing yet)</div>
+
+<script>
+  document.getElementById('generateBtn').addEventListener('click', () => {
+    const input = document.getElementById('input').innerHTML;
+
+    console.log("Raw input innerHTML BEFORE parsing:\n", input);
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = input;
+
+    const allRows = tempDiv.querySelectorAll('table tr');
+    const rowArray = Array.from(allRows);
+    const weekInfoContent = document.getElementById('weekInfoContent');
+
+    if (rowArray.length > 0) {
+      console.log("Extracted first <tr>:", rowArray[0]);
+      weekInfoContent.innerHTML = rowArray[0].innerHTML;
+    } else {
+      console.warn("No <tr> found in input.");
+      weekInfoContent.innerHTML = '<em>No row 1 (week info) found</em>';
+    }
+
+    const contentRows = rowArray.slice(2, -1);
+
+    let outputHTML = "";
+
+    contentRows.forEach((row, i) => {
+      const cells = row.cells;
+      const firstCellHTML = cells[0]?.innerHTML.trim();
+      const thirdCellHTML = cells[2]?.innerHTML.trim();
+
+      if (firstCellHTML) {
+        outputHTML += `<p>${firstCellHTML}</p>\n`;
+      }
+
+      if (thirdCellHTML) {
+        outputHTML += `<p>${thirdCellHTML}</p>\n`;
+      }
+
+      outputHTML += `<p>&nbsp;</p>\n`;
+    });
+
+    const cleaner = document.createElement('div');
+    cleaner.innerHTML = outputHTML;
+
+    const allParagraphs = cleaner.querySelectorAll('p');
+
+    allParagraphs.forEach(p => {
+      const childPs = Array.from(p.children).filter(el => el.tagName === 'P');
+      if (childPs.length === 1 && p.children.length === 1) {
+        p.replaceWith(childPs[0]);
+      }
+    });
+
+    const allCleanedParagraphs = cleaner.querySelectorAll('p');
+
+    allCleanedParagraphs.forEach(p => {
+      const isActuallyEmpty =
+        (p.textContent.trim() === "" || p.innerHTML.trim() === "") &&
+        p.children.length === 0;
+      const isNonBreakingSpace = p.innerHTML.trim() === "&nbsp;";
+      if (isActuallyEmpty && !isNonBreakingSpace) {
+        p.remove();
+      }
+    });
+
+    const styledElements = cleaner.querySelectorAll('[style]');
+
+    styledElements.forEach(el => {
+      const style = el.getAttribute('style') || "";
+      if (/font-weight\s*:\s*700/.test(style)) {
+        const strong = document.createElement('strong');
+        strong.innerHTML = el.innerHTML;
+        el.replaceWith(strong);
+      }
+    });
+
+    const italicStyledElements = cleaner.querySelectorAll('[style]');
+
+    italicStyledElements.forEach(el => {
+      const style = el.getAttribute('style') || "";
+      if (/font-style\s*:\s*italic/i.test(style)) {
+        const em = document.createElement('em');
+        em.innerHTML = el.innerHTML;
+        const colorMatch = style.match(/color\s*:\s*[^;]+/i);
+        const colorStyle = colorMatch ? colorMatch[0] : "";
+        el.setAttribute("style", colorStyle);
+        el.innerHTML = "";
+        el.appendChild(em);
+      }
+    });
+
+    outputHTML = cleaner.innerHTML;
+
+    document.getElementById('outputHTML').value = outputHTML || "(No content generated)";
+    document.getElementById('renderedPreview').innerHTML = outputHTML || "(No content generated)";
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const outputArea = document.getElementById('outputHTML');
+    outputArea.select();
+    document.execCommand('copy');
+  });
+</script>
+</body>
+</html>
