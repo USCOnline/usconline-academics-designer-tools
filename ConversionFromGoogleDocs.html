@@ -594,7 +594,7 @@ const transformations = {
 		html = html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
 
 		// Second Promotion: Upgrade specific <h4> to <h3> if they contain target keywords
-		const keywordPattern = /<h4([^>]*)>(.*?(?:Instructions|Formatting|Rubric).*?)<\/h4>/gi;
+		const keywordPattern = /<h4([^>]*)>(.*?(?:Instructions|Formatting|Rubric|Reference|References).*?)<\/h4>/gi;
 		html = html.replace(keywordPattern, '<h3$1 style="font-size: 14pt;"><strong>$2</strong></h3>');
 
 		return html;
