@@ -648,7 +648,7 @@ const transformations = {
 const noteParagraphsArray = [];
 
 function extractVariablesFromHTML(liElement, h3Element) {
-	let headingSize = (/readings/i.test(h3Element.textContent)) ? '12pt' : '14pt';
+	let headingSize = (/readings?/i.test(h3Element.textContent)) ? '12pt' : '14pt';
 	let headingTag = 'h3'; // Default tag for regular readings
 	let categoryTitle = '';
 
