@@ -44,7 +44,7 @@ button {
 }
 #renderedPreview {
 	border: 1px solid #ccc;
-	background-color: #f9f9f9;
+/*	background-color: #f9f9f9;*/
 	padding: 1rem;
 	margin-top: 2rem;
 }
@@ -59,10 +59,6 @@ button {
 	</div>
 </div>
 <button id="generateBtn">Generate</button>
-<div id="weekInfoDisplay">
-	<strong>Week Info:</strong>
-	<div id="weekInfoContent">(Nothing yet)</div>
-</div>
 <label for="outputHTML">Transformed HTML:</label>
 <textarea id="outputHTML" readonly></textarea>
 <button id="copyBtn">Copy Code</button>
@@ -70,8 +66,10 @@ button {
 <!-- Rendered Preview -->
 <hr>
 <h2>Rendered Preview:</h2>
+<div id="weekInfoDisplay"> <strong>Week Info:</strong>
+	<div id="weekInfoContent">(Nothing yet)</div>
+</div>
 <div id="renderedPreview">(Nothing yet)</div>
-
 <script>
   document.getElementById('generateBtn').addEventListener('click', () => {
     const input = document.getElementById('input').innerHTML;
@@ -162,6 +160,93 @@ button {
         el.appendChild(em);
       }
     });
+	  
+	// Strip all style attributes except 'color: rgb(255, 0, 255)'
+	const elementsWithStyle = cleaner.querySelectorAll('[style]');
+
+	elementsWithStyle.forEach(el => {
+	  const originalStyle = el.getAttribute('style') || "";
+	  const colorMatch = originalStyle.match(/color\s*:\s*rgb\(\s*255\s*,\s*0\s*,\s*255\s*\)/i);
+
+	  if (colorMatch) {
+		el.setAttribute('style', 'color: rgb(255, 0, 255)');
+	  } else {
+		el.removeAttribute('style');
+	  }
+	});
+	  
+	// Remove all <span> tags with no attributes
+	const allSpans = cleaner.querySelectorAll('span');
+
+	allSpans.forEach(span => {
+	  if (!span.attributes.length) {
+		// If no attributes, unwrap the span (preserve its children)
+		const parent = span.parentNode;
+		while (span.firstChild) {
+		  parent.insertBefore(span.firstChild, span);
+		}
+		parent.removeChild(span);
+	  }
+	});
+
+	// Remove all dir="ltr" attributes
+	const allElementsWithDir = cleaner.querySelectorAll('[dir]');
+	allElementsWithDir.forEach(el => {
+	  if (el.getAttribute('dir') === 'ltr') {
+		el.removeAttribute('dir');
+	  }
+	});
+	  
+	// Remove any element that contains a descendant styled with pink
+	const pinkElements = cleaner.querySelectorAll('[style*="rgb(255, 0, 255)"]');
+
+	pinkElements.forEach(pinkEl => {
+	  // Traverse up to the nearest <p> or other removable block container
+	  let current = pinkEl;
+	  while (current && current !== cleaner) {
+		if (['P', 'DIV', 'LI'].includes(current.tagName)) {
+		  current.remove();
+		  break;
+		}
+		current = current.parentElement;
+	  }
+	});
+
+	// Remove specific <p> elements based on exact simplified content
+	const paragraphsToRemove = [
+	  '&nbsp;',
+	  '<strong>added</strong>',
+	  '<strong>pending</strong>',
+	  '<strong>omitted</strong>',
+	  '<em>[opener]</em>',
+	  '<em>[closer]</em>'
+	];
+
+	cleaner.querySelectorAll('p').forEach(p => {
+	  let html = p.innerHTML
+		.replace(/\s+/g, ' ')       // collapse all whitespace
+		.replace(/>\s+</g, '><')    // remove space between tags
+		.trim()
+		.toLowerCase();
+
+	  if (paragraphsToRemove.includes(html)) {
+		p.remove();
+	  }
+	});
+	  
+	// Flatten <p> inside all <li> and remove aria-level attributes
+	cleaner.querySelectorAll('li').forEach(li => {
+	  // Remove aria-level attribute
+	  li.removeAttribute('aria-level');
+
+	  // Flatten <p> only if it's the sole child of <li>
+	  const onlyChild = li.children.length === 1 ? li.children[0] : null;
+	  if (onlyChild && onlyChild.tagName === 'P') {
+		li.innerHTML = onlyChild.innerHTML;
+	  }
+	});
+
+
 
     outputHTML = cleaner.innerHTML;
 
