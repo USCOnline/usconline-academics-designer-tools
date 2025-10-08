@@ -250,6 +250,17 @@ button {
 
     outputHTML = cleaner.innerHTML;
 
+	// Prepend template to output
+	const template = `<p><img style="display: block; margin-left: auto; margin-right: auto;" role="presentation" src="https://courses.bovardcollege.usc.edu/courses/221/files/25882/preview" alt="" width="268" height="54" data-api-endpoint="https://courses.bovardcollege.usc.edu/courses/221/files/25882/preview" data-api-returntype="File" /></p>
+	<p style="text-align: center;"><strong>Weekly Faculty Update</strong></p>
+	<p><em>Note: To access links, files, and embedded media in Canvas announcements, select "view announcement" at the bottom of the email notification to open the message in Canvas.</em></p>
+	`;
+
+	outputHTML = template + outputHTML;
+
+	document.getElementById('outputHTML').value = outputHTML || "(No content generated)";
+	document.getElementById('renderedPreview').innerHTML = outputHTML || "(No content generated)";
+
     document.getElementById('outputHTML').value = outputHTML || "(No content generated)";
     document.getElementById('renderedPreview').innerHTML = outputHTML || "(No content generated)";
   });
