@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canvas Copy → Clean HTML (for Google Docs)</title>
+  <style>
+    textarea {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+    .contenteditable-container {
+      display: block;
+      width: 100%;
+      max-height: 300px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 10px;
+      overflow: auto;
+    }
+    .contenteditable {
+      min-height: 200px;
+      outline: none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      font-size: 14px;
+    }
+    .rendered-content {
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+	  body {
+		  padding-left: 20px;
+	  }
+  </style>
+</head>
+<body>
+  <h1 style="color: #990000">Assignment  Formatting and Rubric Sections Canvas → Google Docs</h1>
+  <ul>
+  	<li>Copy the Formatting and Rubric sections from Canvas and paste them in the box below. Then, select <strong>Format Me!</strong></li>
+</ul>
+
+  <div class="row">
+  	<div id="inputArea">
+      <div class="contenteditable-container">
+        <div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
+      </div>
+      <button id="formatButton">Format Me!</button>
+      <button id="clearButton">Clear</button>
+    </div>
+
+	<ul>
+		<li>Select the <strong>Copy  (for Docs)</strong> button and return to the CPG to paste these sections at the end of the appropriate assignment.</li>
+		<li>Finally, locate the matching rubric from the <a href="https://drive.google.com/drive/folders/1xueyQ4unYa65mclSoSiWyqvg_hryNrJp?usp=drive_link" target="_blank">Student Facing Rubrics</a> folder, and replace the rubric link in the CPG.</li>
+	</ul>
+<div>
+	<textarea style="display: none;" id="output" rows="14" aria-label="Output HTML"></textarea>
+      <div id="renderedOutput" class="rendered-content"><strong>Preview</strong></div>
+	 <button id="copyRenderedButton">Copy  (for Docs)</button>
+	    <span id="copyStatus" style="margin-left: 10px; color: green; font-weight: 600; display: none;">Copied!</span>
+    </div>
+</div>
+
+<script>
+    // -------- Utilities --------
+    function unwrapElement(el) {
+      const parent = el.parentNode;
+      if (!parent) return;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+    }
+
+    function removeAllBySelector(doc, selector) {
+      doc.querySelectorAll(selector).forEach(el => el.remove());
+    }
+
+    function replaceNbspInTextNodes(node) {
+      const walker = node.ownerDocument.createTreeWalker(node, NodeFilter.SHOW_TEXT, null);
+      const textNodes = [];
+      let current;
+      while ((current = walker.nextNode())) textNodes.push(current);
+
+      textNodes.forEach(t => {
+        // Convert non-breaking spaces to normal spaces
+        if (t.nodeValue && t.nodeValue.includes("\u00A0")) {
+          t.nodeValue = t.nodeValue.replace(/\u00A0/g, " ");
+        }
+      });
+    }
+
+    function removeEmptyParagraphs(doc) {
+      doc.querySelectorAll("p").forEach(p => {
+        // Consider a paragraph empty if it has no meaningful text and no meaningful elements
+        const text = (p.textContent || "").replace(/\u00A0/g, " ").trim();
+        const hasMeaningfulElement = p.querySelector("img, iframe, table, ul, ol, li, a, strong, em");
+        if (!text && !hasMeaningfulElement) p.remove();
+      });
+    }
+
+    function renameHeadingTags(doc) {
+	  // Convert all H3 to H5 and set font size to 11pt
+	  doc.querySelectorAll("h3").forEach(h3 => {
+	    const h5 = doc.createElement("h5");
+
+	    // Explicit style attribute (survives serialization cleanly)
+	    h5.setAttribute("style", "font-size: 11pt;");
+
+	    // move children
+	    while (h3.firstChild) {
+		 h5.appendChild(h3.firstChild);
+	    }
+
+	    h3.parentNode.replaceChild(h5, h3);
+	  });
+	}
+
+
+    function normalizeExternalLinks(doc) {
+      // Rule: external links (not on bovardcollege.usc.edu) get target/_blank and rel
+      doc.querySelectorAll("a[href]").forEach(a => {
+        let href = a.getAttribute("href") || "";
+        try {
+          const url = new URL(href, window.location.href);
+          const host = url.hostname.toLowerCase();
+
+          // Remove target/rel by default (so internal Canvas file links match your desired output)
+          a.removeAttribute("target");
+          a.removeAttribute("rel");
+
+          const isExternal = !host.endsWith("bovardcollege.usc.edu");
+          if (isExternal) {
+            a.setAttribute("target", "_blank");
+            a.setAttribute("rel", "noreferrer noopener");
+          }
+        } catch {
+          // If URL parsing fails, do nothing.
+        }
+      });
+    }
+
+    function stripAttributesWithWhitelist(doc) {
+      const allowedAttrsByTag = {
+        "A": new Set([
+          "href",
+          "target",
+          "rel",
+          "data-api-endpoint",
+          "data-api-returntype",
+          "aria-expanded",
+          "aria-controls"
+        ]),
+        "IMG": new Set(["src", "alt", "width", "height", "title"]),
+        "IFRAME": new Set(["src", "title", "width", "height", "allowfullscreen", "webkitallowfullscreen", "mozallowfullscreen"]),
+	   "H5": new Set(["style"])
+ 
+      };
+
+      const allElements = Array.from(doc.body.querySelectorAll("*"));
+      allElements.forEach(el => {
+        const tag = el.tagName;
+        const allowed = allowedAttrsByTag[tag] || new Set(); // default: no attrs
+
+        // Always remove style/class/id and any canvas-ish attributes unless whitelisted
+        Array.from(el.attributes).forEach(attr => {
+          const name = attr.name.toLowerCase();
+          const keep = allowed.has(name);
+          if (!keep) el.removeAttribute(attr.name);
+        });
+      });
+    }
+
+    function unwrapCanvasSpans(doc) {
+      // Unwrap spans that Canvas injects around links/icons/wrappers
+      // We also unwrap ALL spans to match your desired output structure.
+      // (This is generally safe for your use case because we preserve <em>/<strong>/<a>.)
+      const spans = Array.from(doc.querySelectorAll("span"));
+      spans.forEach(span => unwrapElement(span));
+    }
+
+    function removeCanvasJunk(doc) {
+      // Remove screen-reader-only text nodes (don’t unwrap—remove entirely)
+      removeAllBySelector(doc, ".screenreader-only");
+
+      // Remove external link icon wrapper (includes SVG)
+      removeAllBySelector(doc, ".external_link_icon");
+
+      // Remove download button link entirely
+      removeAllBySelector(doc, "a.file_download_btn");
+
+      // Remove SVGs if any remain
+      removeAllBySelector(doc, "svg");
+    }
+
+    function cleanHtmlForDocs(rawHtml) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, "text/html");
+
+      // 1) Remove known Canvas junk
+      removeCanvasJunk(doc);
+
+      // 2) Unwrap spans (Canvas wrappers, icon wrappers, etc.)
+      unwrapCanvasSpans(doc);
+
+      // 3) Convert H3 -> H5
+      renameHeadingTags(doc);
+
+      // 4) Convert &nbsp; to normal spaces in text nodes
+      replaceNbspInTextNodes(doc.body);
+
+      // 5) Remove empty paragraphs (including those that were just &nbsp;)
+      removeEmptyParagraphs(doc);
+
+      // 6) Normalize external links behavior
+      normalizeExternalLinks(doc);
+
+      // 7) Strip attributes aggressively, but keep a whitelist for anchors (and a few media tags)
+      stripAttributesWithWhitelist(doc);
+
+      // Final tidy: trim leading/trailing whitespace in body HTML (optional)
+      return doc.body.innerHTML.trim();
+    }
+
+    // -------- UI wiring --------
+    function proceedWithFormatting() {
+      const inputContent = document.getElementById("input").innerHTML;
+      const cleaned = cleanHtmlForDocs(inputContent);
+
+      document.getElementById("output").value = cleaned;
+      document.getElementById("renderedOutput").innerHTML = cleaned || "<em>(No output)</em>";
+    }
+		 
+	async function copyRenderedOutputToClipboard() {
+	  const renderedEl = document.getElementById("renderedOutput");
+	  const statusEl = document.getElementById("copyStatus");
+
+	  const html = renderedEl.innerHTML;
+	  const text = renderedEl.innerText;
+
+	  function showCopied() {
+	    statusEl.style.display = "inline";
+	    clearTimeout(statusEl._timeout);
+	    statusEl._timeout = setTimeout(() => {
+		 statusEl.style.display = "none";
+	    }, 1500);
+	  }
+
+	  try {
+	    const item = new ClipboardItem({
+		 "text/html": new Blob([html], { type: "text/html" }),
+		 "text/plain": new Blob([text], { type: "text/plain" })
+	    });
+	    await navigator.clipboard.write([item]);
+	    showCopied();
+	    return;
+	  } catch (err) {
+	    try {
+		 await navigator.clipboard.writeText(html);
+		 showCopied();
+	    } catch (err2) {
+		 console.error("Clipboard copy failed", err2);
+	    }
+	  }
+	}
+
+
+
+    function addEventListeners() {
+	  document.getElementById("formatButton").addEventListener("click", proceedWithFormatting);
+
+	  document.getElementById("clearButton").addEventListener("click", () => {
+	    document.getElementById("input").innerHTML = "";
+	    document.getElementById("output").value = "";
+	    document.getElementById("renderedOutput").innerHTML = "<strong>Preview</strong>";
+	  });
+
+	  document.getElementById("copyRenderedButton").addEventListener("click", copyRenderedOutputToClipboard);
+	}
+
+
+    document.addEventListener("DOMContentLoaded", addEventListeners);
+  </script>
+</body>
+</html>
