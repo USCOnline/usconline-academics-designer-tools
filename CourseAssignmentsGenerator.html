@@ -71,7 +71,7 @@
 <form id="assignmentForm" style="display: none;">
 	
         <div class="input-group">
-            <p>Enter each week number as a digit, (i.e. 4). If your course has multiple assignments per week, use X-X (i.e. 4-1). Use 8 for the Final Assessment.</p>
+            <p>Enter each week number as a digit, (i.e. 4). If your course has multiple assignments per week, use X-X (i.e. 4-1). Use 8FA or 16FA for the Final Assessment.</p>
 		   <label for="weekNumber"><strong>Week Number</strong></label>
             <input type="text" id="weekNumber" name="weekNumber" placeholder="Enter week number">
         </div>
@@ -135,21 +135,30 @@
 
 		// Parse the week number input to handle "x-x" format
 		let weekLabel = '';
-		const weekMatch = weekNumber.match(/^(\d+)(?:-(\d+))?$/);
+		const weekMatch = weekNumber.match(/^(\d+)(FA)?(?:-(\d+))?$/i);
 		if (weekMatch) {
-			const mainWeek = weekMatch[1];
-			const subWeek = weekMatch[2] ? `: Assignment ${weekMatch[2]}` : ': Assignment';
-			weekLabel = `Week ${mainWeek}${subWeek}`;
+		    const mainWeek = weekMatch[1];
+		    const hasFA = !!weekMatch[2];       // "FA" present?
+		    const subPart = weekMatch[3];       // the optional "-X" number, if any
+
+		    const subWeek = subPart ? `: Assignment ${subPart}` : ': Assignment';
+		    weekLabel = `Week ${mainWeek}${subWeek}`;
+
+		    // Store this on the object when pushing (see next change)
+		    var isFinalAssessment = hasFA;
 		} else {
+
 			alert('Invalid week number format. Please use "X" or "X-X" (e.g., "4" or "4-1").');
 			return false;
 		}
 
 		// Store the assignment data
 		assignments.push({
-			week: weekLabel,
-			content: assignmentContent
+		    week: weekLabel,
+		    content: assignmentContent,
+		    isFinalAssessment: typeof isFinalAssessment !== "undefined" ? isFinalAssessment : false
 		});
+
 
 		// Update the "Last added" notation
 		updateLastAdded(weekLabel);
@@ -201,7 +210,7 @@
 
         // Generate tab headers
         assignments.forEach((assignment, index) => {
-            const tabLabel = (assignment.week.includes('Week 8')) ? 'Final Assessment' : assignment.week;
+            const tabLabel = assignment.isFinalAssessment ? 'Final Assessment' : assignment.week;
             outputHTML += `<li><a href="#tabs-${index + 1}">${tabLabel}</a></li>`;
         });
 
