@@ -736,15 +736,16 @@ function extractVariablesFromHTML(liElement, h3Element) {
 		timestamp = timestampMatch[1].replace(/\s/g, '');
 	}
 
-	if (/multimedia/i.test(h3Element.textContent)) {
-		if (/Video/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
-		} else if (/Audio/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
-		} else if (/Podcast/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
-		}
+	if (/Video/i.test(headingPrefix)) {
+	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
+	} else if (/Audio/i.test(headingPrefix)) {
+	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
+	} else if (/Podcast/i.test(headingPrefix)) {
+	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
+	} else if (/Interactive multimedia/i.test(headingPrefix)) {
+	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
 	}
+
 
 	citation = citation.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '').trim();
 	citation = citation.replace(chapterRegex, '').trim();
