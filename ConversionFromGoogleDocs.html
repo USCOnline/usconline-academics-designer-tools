@@ -744,6 +744,8 @@ function extractVariablesFromHTML(liElement, h3Element) {
 	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
 	} else if (/Interactive multimedia/i.test(headingPrefix)) {
 	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
+	} else if (/Multimedia case/i.test(headingPrefix)) {
+	  additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Case Transcript">Transcript</a>)`;
 	}
 
 
