@@ -474,11 +474,11 @@ textarea {
 		if (pElement) {
 			//console.log("pElement:", pElement.outerHTML);
 			const pText = pElement.textContent.trim();
-			const chapterMatch = pText.match(/(Chapter|Section|Part|Unit)\s+\d+:/i);
+			const chapterMatch = pText.match(/(Chapter|Section|Part|Unit)\s+\d+\s*(?::|\s*[-–—]\s*)/i);
 			if (chapterMatch) {
 				// e.g. "Chapter 5:"
 				// Remove the trailing colon so you can display "Chapter 5" later
-				extractedData.chapterInfo = chapterMatch[0].replace(":", "").trim();
+				extractedData.chapterInfo = chapterMatch[0].replace(/\s*(?::|[-–—])\s*$/, "").trim();
 				// Attempt to parse the number from "Chapter 6"
 				const numberMatch = extractedData.chapterInfo.match(/\d+/);
 				if (numberMatch) {
@@ -1015,7 +1015,7 @@ textarea {
 
 			paragraphs.forEach(paragraph => {
 				// Match chapter/section/part notation at the start of the text
-				const chapterMatch = paragraph.textContent.match(/^(Chapter|Section|Part|Unit) \d+:/i);
+				const chapterMatch = paragraph.textContent.match(/^(Chapter|Section|Part|Unit)\s+\d+\s*(?::|[-–])\s*/i);
 
 				if (chapterMatch) {
 					// Extract the chapter notation
