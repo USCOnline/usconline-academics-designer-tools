@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grid CPG → Linear CPG Converter</title>
+  <style>
+    :root {
+      --accent: #990000;
+      --border: #cfcfcf;
+      --panel: #fafafa;
+      --muted: #666;
+    }
+
+    body {
+      font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, sans-serif;
+      padding: 18px;
+      color: #222;
+      background: #fff;
+    }
+
+    h1, h2 {
+      color: var(--accent);
+      margin: 0 0 12px 0;
+    }
+
+    .intro {
+      max-width: 1100px;
+      margin-bottom: 16px;
+      line-height: 1.45;
+    }
+
+    .row {
+      display: grid;
+      gap: 14px;
+      max-width: 1300px;
+    }
+
+    .contenteditable-container {
+      display: block;
+      max-height: 320px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      overflow: auto;
+      background: #fff;
+    }
+
+    .contenteditable {
+      min-height: 220px;
+      outline: none;
+      white-space: normal;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      background: #f4f4f4;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    button:hover {
+      filter: brightness(0.97);
+    }
+
+    .output-wrap {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      padding: 10px;
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+    }
+
+    .rendered-content {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      padding: 14px;
+      min-height: 180px;
+      overflow: auto;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: -4px;
+    }
+
+    .status {
+      font-weight: 600;
+      color: #1a7f37;
+      display: none;
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.4;
+      margin-top: 8px;
+      max-width: 1100px;
+    }
+
+    .divider {
+      height: 1px;
+      background: #e5e5e5;
+      margin: 14px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Grid CPG → Linear CPG Converter</h1>
+  <div class="intro">
+    <p>Paste the grid-based CPG from Google Docs, then convert it into a linear Google Docs-ready version. This first pass preserves non-table content and flattens tables into a readable sequence.</p>
+    <p class="hint">Best used with content copied directly from Google Docs so the browser can capture the rich text and table structure.</p>
+  </div>
+
+  <div class="row">
+    <div id="inputArea">
+      <div class="contenteditable-container">
+        <div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
+      </div>
+
+      <div class="toolbar" style="margin-top: 10px;">
+        <button id="formatButton" class="primary">Convert</button>
+        <button id="clearButton">Clear</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="output-wrap">
+      <div>
+        <textarea id="output" rows="12" aria-label="Output HTML" style="display:none;"></textarea>
+        <div class="toolbar" style="margin-bottom: 8px;">
+          <button id="copyRenderedButton" class="primary">Copy for Docs</button>
+          <span id="copyStatus" class="status">Copied!</span>
+        </div>
+        <div id="renderedOutput" class="rendered-content"><strong>Preview</strong></div>
+      </div>
+
+      <div class="small-note">
+        The converter keeps headings, bold, italics, links, and other inline formatting where possible. Tables are flattened row-by-row into linear paragraphs so the result can be pasted into a new Google Doc without table structure.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function unwrapElement(el) {
+      const parent = el.parentNode;
+      if (!parent) return;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+    }
+
+    function removeAllBySelector(doc, selector) {
+      doc.querySelectorAll(selector).forEach(el => el.remove());
+    }
+
+    function showCopied() {
+      const statusEl = document.getElementById('copyStatus');
+      statusEl.style.display = 'inline';
+      clearTimeout(statusEl._timeout);
+      statusEl._timeout = setTimeout(() => {
+        statusEl.style.display = 'none';
+      }, 1500);
+    }
+
+    function isBlockTag(tagName) {
+      return new Set([
+        'P', 'DIV', 'SECTION', 'ARTICLE', 'ASIDE', 'HEADER', 'FOOTER',
+        'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE',
+        'TABLE', 'TBODY', 'THEAD', 'TFOOT', 'TR', 'TD', 'TH'
+      ]).has(tagName);
+    }
+
+    function isInlineAllowed(tagName) {
+      return new Set([
+        'A', 'STRONG', 'B', 'EM', 'I', 'U', 'SPAN', 'SUB', 'SUP', 'SMALL',
+        'BR', 'IMG', 'CODE', 'S', 'MARK'
+      ]).has(tagName);
+    }
+
+    function copyAttributes(src, dest, allowedAttrs = null) {
+      Array.from(src.attributes || []).forEach(attr => {
+        const name = attr.name.toLowerCase();
+        if (!allowedAttrs || allowedAttrs.has(name)) {
+          dest.setAttribute(attr.name, attr.value);
+        }
+      });
+    }
+
+    function cloneInlineNode(node, doc) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return doc.createTextNode(node.nodeValue || '');
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return null;
+      }
+
+      const tag = node.tagName.toUpperCase();
+
+      if (tag === 'TABLE') {
+        return null;
+      }
+
+      if (tag === 'TBODY' || tag === 'THEAD' || tag === 'TFOOT' || tag === 'TR') {
+        return null;
+      }
+
+      if (tag === 'TD' || tag === 'TH') {
+        const span = doc.createElement('span');
+        Array.from(node.childNodes).forEach(child => {
+          const cloned = cloneInlineNode(child, doc);
+          if (cloned) span.appendChild(cloned);
+        });
+        return span;
+      }
+
+      if (isInlineAllowed(tag) || isBlockTag(tag)) {
+        const clone = doc.createElement(node.tagName.toLowerCase());
+
+        // Keep the common formatting-related attrs when they exist.
+        const allowedAttrs = new Set([
+          'href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height',
+          'style', 'data-api-endpoint', 'data-api-returntype', 'aria-label',
+          'aria-expanded', 'aria-controls'
+        ]);
+        copyAttributes(node, clone, allowedAttrs);
+
+        Array.from(node.childNodes).forEach(child => {
+          const cloned = cloneInlineNode(child, doc);
+          if (cloned) clone.appendChild(cloned);
+        });
+
+        return clone;
+      }
+
+      // For unknown wrapper elements, preserve their children but drop the wrapper.
+      const fragment = doc.createDocumentFragment();
+      Array.from(node.childNodes).forEach(child => {
+        const cloned = cloneInlineNode(child, doc);
+        if (cloned) fragment.appendChild(cloned);
+      });
+      return fragment;
+    }
+
+    function appendNodePreservingFormatting(node, out, doc) {
+      const cloned = cloneInlineNode(node, doc);
+      if (!cloned) return;
+      out.appendChild(cloned);
+    }
+
+    function textLengthFromNode(node) {
+      return (node.textContent || '').replace(/\s+/g, ' ').trim().length;
+    }
+
+    function cellToInlineHtml(cell, doc) {
+      const temp = doc.createElement('div');
+      Array.from(cell.childNodes).forEach(child => {
+        const cloned = cloneInlineNode(child, doc);
+        if (cloned) temp.appendChild(cloned);
+      });
+      return temp.innerHTML.trim();
+    }
+
+    function cellLooksLikeLabel(html) {
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!text) return false;
+      if (text.length <= 80) return true;
+      return /^[A-Z][A-Za-z0-9\s()&/,-]+:?$/.test(text);
+    }
+
+    function appendParagraph(html, out, doc) {
+      const p = doc.createElement('p');
+      p.innerHTML = html;
+      out.appendChild(p);
+    }
+
+    function flattenTable(table, out, doc) {
+      const rows = Array.from(table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr, :scope > tr'));
+
+      rows.forEach((tr, rowIndex) => {
+        const cells = Array.from(tr.children).filter(el => ['TD', 'TH'].includes(el.tagName));
+        const flattenedCells = cells
+          .map(cell => cellToInlineHtml(cell, doc))
+          .filter(html => html.replace(/<[^>]*>/g, '').trim() !== '');
+
+        if (flattenedCells.length === 0) return;
+
+        if (flattenedCells.length === 1) {
+          appendParagraph(flattenedCells[0], out, doc);
+        } else if (flattenedCells.length === 2 && cellLooksLikeLabel(flattenedCells[0])) {
+          appendParagraph(`<strong>${flattenedCells[0]}</strong> ${flattenedCells[1]}`, out, doc);
+        } else {
+          flattenedCells.forEach(cellHtml => appendParagraph(cellHtml, out, doc));
+        }
+
+        if (rowIndex < rows.length - 1) {
+          out.appendChild(doc.createElement('p')).innerHTML = '&nbsp;';
+        }
+      });
+    }
+
+    function linearizeNode(node, out, doc) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue || '';
+        if (text.trim()) out.appendChild(doc.createTextNode(text));
+        else out.appendChild(doc.createTextNode(text));
+        return;
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+      const tag = node.tagName.toUpperCase();
+
+      if (tag === 'TABLE') {
+        flattenTable(node, out, doc);
+        return;
+      }
+
+      if (tag === 'TBODY' || tag === 'THEAD' || tag === 'TFOOT' || tag === 'TR') {
+        Array.from(node.childNodes).forEach(child => linearizeNode(child, out, doc));
+        return;
+      }
+
+      if (tag === 'TD' || tag === 'TH') {
+        const span = doc.createElement('span');
+        Array.from(node.childNodes).forEach(child => {
+          const cloned = cloneInlineNode(child, doc);
+          if (cloned) span.appendChild(cloned);
+        });
+        if (span.innerHTML.trim()) out.appendChild(span);
+        return;
+      }
+
+      // Preserve all other content and formatting.
+      appendNodePreservingFormatting(node, out, doc);
+    }
+
+    function cleanAndLinearize(rawHtml) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(rawHtml, 'text/html');
+      const NBSP = String.fromCharCode(160);
+
+      // Remove obvious clipboard junk, but keep formatting intact.
+      removeAllBySelector(doc, '.screenreader-only');
+      removeAllBySelector(doc, '.external_link_icon');
+      removeAllBySelector(doc, 'svg');
+      removeAllBySelector(doc, 'a.file_download_btn');
+
+      // Convert nbsp to regular spaces in text nodes.
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
+      const textNodes = [];
+      let current;
+      while ((current = walker.nextNode())) textNodes.push(current);
+      textNodes.forEach(t => {
+        if (t.nodeValue && t.nodeValue.indexOf(NBSP) !== -1) {
+          t.nodeValue = t.nodeValue.split(NBSP).join(' ');
+        }
+      });
+
+      const COURSE_LEVEL_MAP = new Map([
+        ['course description', 'Course Description'],
+        ['course overview', 'Canvas Course Overview'],
+        ['course learning objectives', 'Course Learning Objectives (CLOs)'],
+        ['text(s)', 'Course Readings'],
+        ['software', 'Course Technology'],
+        ['course topics', 'Course Topics']
+      ]);
+
+      const COURSE_LEVEL_ORDER = [
+        'course description',
+        'course overview',
+        'course learning objectives',
+        'text(s)',
+        'software',
+        'course topics'
+      ];
+
+      const TABLE_SECTION_MAP = new Map([
+        ['week overview', 'Overview'],
+        ['weekly outcomes', 'Learning Objectives'],
+        ['topics covered', 'Topics'],
+        ['readings', 'Required Readings'],
+        ['reading focus questions', 'Required Readings Focus Questions'],
+        ['key concepts for video', 'Key Concepts Video'],
+        ['multimedia', 'Multimedia'],
+        ['multimedia focus questions', 'Multimedia Focus Questions'],
+        ['discussion prompts', 'Discussion'],
+        ['assignments', 'Assignment'],
+        ['activities', 'Activity']
+      ]);
+
+      function normalizeKey(text) {
+        return (text || '').trim().toLowerCase();
+      }
+
+      function stripTextFromHtml(html) {
+        const temp = doc.createElement('div');
+        temp.innerHTML = html || '';
+        const text = temp.textContent || '';
+        return text.split(NBSP).join(' ').trim();
+      }
+
+      function copyAllowedAttributes(src, dest) {
+        const allowedAttrs = new Set([
+          'href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height',
+          'style', 'data-api-endpoint', 'data-api-returntype', 'aria-label',
+          'aria-expanded', 'aria-controls', 'rowspan', 'colspan', 'scope'
+        ]);
+        Array.from(src.attributes || []).forEach(attr => {
+          if (allowedAttrs.has(attr.name.toLowerCase())) {
+            dest.setAttribute(attr.name, attr.value);
+          }
+        });
+      }
+
+      function serializeNode(node) {
+        if (!node) return '';
+        if (node.nodeType === Node.TEXT_NODE) {
+          const span = doc.createElement('span');
+          span.textContent = (node.nodeValue || '').split(NBSP).join(' ');
+          return span.innerHTML;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+        const tag = node.tagName.toLowerCase();
+        if (tag === 'table' || tag === 'tbody' || tag === 'thead' || tag === 'tfoot' || tag === 'tr') {
+          return '';
+        }
+        if (tag === 'br') return '<br>';
+
+        const preserveTags = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'strong', 'b', 'em', 'i', 'u', 'span', 'sub', 'sup', 'small', 'code', 'mark', 'blockquote', 'img']);
+        if (preserveTags.has(tag)) {
+          const el = doc.createElement(tag);
+          copyAllowedAttributes(node, el);
+          Array.from(node.childNodes).forEach(child => {
+            const childHtml = serializeNode(child);
+            if (childHtml) el.insertAdjacentHTML('beforeend', childHtml);
+          });
+          return el.outerHTML;
+        }
+
+        return Array.from(node.childNodes).map(serializeNode).join('');
+      }
+
+      function appendHtml(out, html) {
+        if (!html || !stripTextFromHtml(html)) return;
+        const temp = doc.createElement('div');
+        temp.innerHTML = html;
+        while (temp.firstChild) out.appendChild(temp.firstChild);
+      }
+
+      function createHeading(tag, text, out) {
+        const el = doc.createElement(tag);
+        el.textContent = text;
+        out.appendChild(el);
+      }
+
+      function cellHtml(cell) {
+        return Array.from(cell.childNodes).map(serializeNode).join('').trim();
+      }
+
+      function buildTableMatrix(table) {
+        const rows = Array.from(table.querySelectorAll('tr'));
+        let maxCols = 0;
+        rows.forEach(row => {
+          let count = 0;
+          Array.from(row.children).forEach(cell => {
+            if (cell.tagName === 'TD' || cell.tagName === 'TH') {
+              count += Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10));
+            }
+          });
+          maxCols = Math.max(maxCols, count);
+        });
+
+        const matrix = [];
+        const spans = Array.from({ length: maxCols }, () => null);
+
+        rows.forEach(rowEl => {
+          const row = new Array(maxCols).fill(null);
+          const cells = Array.from(rowEl.children).filter(el => el.tagName === 'TD' || el.tagName === 'TH');
+          let c = 0;
+
+          const fillFromSpans = () => {
+            while (c < maxCols && spans[c] && spans[c].remaining > 0) {
+              row[c] = spans[c].cell;
+              spans[c].remaining -= 1;
+              c += 1;
+            }
+          };
+
+          for (const cell of cells) {
+            fillFromSpans();
+            while (c < maxCols && row[c]) c += 1;
+
+            const rowspan = Math.max(1, parseInt(cell.getAttribute('rowspan') || '1', 10));
+            const colspan = Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10));
+            const cellObj = {
+              el: cell,
+              text: stripTextFromHtml(cell.innerHTML || cell.textContent || ''),
+              html: cell.innerHTML.trim(),
+              rowspan,
+              colspan
+            };
+
+            for (let i = 0; i < colspan; i += 1) {
+              row[c + i] = cellObj;
+              if (rowspan > 1) {
+                spans[c + i] = { cell: cellObj, remaining: rowspan - 1 };
+              }
+            }
+            c += colspan;
+          }
+
+          fillFromSpans();
+          matrix.push(row);
+        });
+
+        return matrix;
+      }
+
+      function sectionTitleFor(label) {
+        const key = normalizeKey(label);
+        return TABLE_SECTION_MAP.get(key) || label.trim();
+      }
+
+      function convertTableToWeekBlocks(table) {
+        const matrix = buildTableMatrix(table);
+        if (!matrix.length) return '';
+
+        const headerRow = matrix[0];
+        const weeks = [];
+        for (let c = 1; c < headerRow.length; c += 1) {
+          const headerCell = headerRow[c];
+          const label = headerCell && headerCell.text ? headerCell.text : `Week ${c}`;
+          weeks.push({
+            weekNumber: c,
+            label,
+            title: '',
+            sections: [],
+            sectionMap: new Map()
+          });
+        }
+
+        let currentSectionLabel = '';
+
+        for (let r = 1; r < matrix.length; r += 1) {
+          const row = matrix[r];
+          const firstCell = row[0];
+          const rowLabel = firstCell && firstCell.text ? firstCell.text : currentSectionLabel;
+          if (!rowLabel) continue;
+
+          currentSectionLabel = rowLabel;
+          const key = normalizeKey(rowLabel);
+
+          if (key.indexOf('week title') === 0) {
+            weeks.forEach((week, weekIndex) => {
+              const cell = row[weekIndex + 1];
+              if (cell && cell.text) {
+                week.title = cell.text;
+              }
+            });
+            continue;
+          }
+
+          const baseSection = sectionTitleFor(rowLabel);
+
+          weeks.forEach((week, weekIndex) => {
+            const cell = row[weekIndex + 1];
+            if (!cell || !cell.html || !stripTextFromHtml(cell.html)) return;
+
+            const displayTitle = `Week ${week.weekNumber} ${baseSection}`;
+            if (!week.sectionMap.has(displayTitle)) {
+              const entry = { title: displayTitle, parts: [] };
+              week.sectionMap.set(displayTitle, entry);
+              week.sections.push(entry);
+            }
+            week.sectionMap.get(displayTitle).parts.push(cell.html);
+          });
+        }
+
+        const out = doc.createElement('div');
+        weeks.forEach(week => {
+          createHeading('h2', week.title ? `Week ${week.weekNumber}: ${week.title}` : `Week ${week.weekNumber}`, out);
+
+          week.sections.forEach(section => {
+            createHeading('h3', section.title, out);
+            section.parts.forEach((part, idx) => {
+              appendHtml(out, part);
+              if (idx < section.parts.length - 1) {
+                const spacer = doc.createElement('p');
+                spacer.innerHTML = '&nbsp;';
+                out.appendChild(spacer);
+              }
+            });
+          });
+        });
+
+        return out.innerHTML;
+      }
+
+      function isLikelyBlockElement(node) {
+        if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+        const tag = node.tagName.toUpperCase();
+        return ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'BLOCKQUOTE'].indexOf(tag) !== -1;
+      }
+
+      function collectBlocksInDocumentOrder(root) {
+        const blocks = [];
+
+        function walk(node) {
+          if (!node) return;
+
+          if (node.nodeType === Node.TEXT_NODE) {
+            if ((node.nodeValue || '').trim()) blocks.push(node);
+            return;
+          }
+
+          if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+          const tag = node.tagName.toUpperCase();
+          if (isLikelyBlockElement(node)) {
+            blocks.push(node);
+            return;
+          }
+
+          Array.from(node.childNodes).forEach(walk);
+        }
+
+        walk(root);
+        return blocks;
+      }
+
+      function headingKeyFromNode(node) {
+        if (!node || node.nodeType !== Node.ELEMENT_NODE) return '';
+        return normalizeKey(stripTextFromHtml(node.innerHTML || node.textContent || ''));
+      }
+
+      function buildCourseLevelHtml() {
+        const sections = new Map();
+        COURSE_LEVEL_ORDER.forEach(key => {
+          sections.set(key, { title: COURSE_LEVEL_MAP.get(key), parts: [] });
+        });
+
+        const consumed = new Set();
+        const blocks = collectBlocksInDocumentOrder(doc.body);
+        let activeKey = '';
+
+        blocks.forEach(node => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return;
+          }
+
+          const key = headingKeyFromNode(node);
+          if (COURSE_LEVEL_MAP.has(key)) {
+            activeKey = key;
+            consumed.add(node);
+            return;
+          }
+
+          if (activeKey && sections.has(activeKey)) {
+            const tag = node.tagName.toUpperCase();
+            if (tag === 'TABLE' || tag === 'H1' || tag === 'H2' || tag === 'H3' || tag === 'H4' || tag === 'H5' || tag === 'H6') {
+              // Stop capturing when we hit the next structural heading or table.
+              if (tag === 'TABLE') {
+                consumed.add(node);
+              }
+              activeKey = '';
+              return;
+            }
+
+            const html = serializeNode(node);
+            if (html && stripTextFromHtml(html)) {
+              sections.get(activeKey).parts.push(html);
+              consumed.add(node);
+            }
+          }
+        });
+
+        const out = doc.createElement('div');
+        COURSE_LEVEL_ORDER.forEach(key => {
+          const section = sections.get(key);
+          const content = section.parts.map(part => stripTextFromHtml(part)).join(' ').trim();
+          if (!content) return;
+
+          createHeading('h3', section.title, out);
+          section.parts.forEach(part => appendHtml(out, part));
+        });
+
+        return { html: out.innerHTML, consumed };
+      }
+
+      function processNode(node, out, consumed) {
+        if (!node || consumed.has(node)) return;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.nodeValue || '';
+          if (text.trim()) out.appendChild(doc.createTextNode(text));
+          return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName.toUpperCase();
+        if (tag === 'TABLE') {
+          appendHtml(out, convertTableToWeekBlocks(node));
+          return;
+        }
+
+        if (node.querySelector && node.querySelector('table')) {
+          Array.from(node.childNodes).forEach(child => processNode(child, out, consumed));
+          return;
+        }
+
+        const html = serializeNode(node);
+        if (html) appendHtml(out, html);
+      }
+
+      const finalOut = doc.createElement('div');
+      const courseLevel = buildCourseLevelHtml();
+      appendHtml(finalOut, courseLevel.html);
+
+      Array.from(doc.body.childNodes).forEach(node => processNode(node, finalOut, courseLevel.consumed));
+
+      finalOut.querySelectorAll('p').forEach(p => {
+        const text = (p.textContent || '').split(NBSP).join(' ').trim();
+        const meaningful = p.querySelector('img, iframe, table, ul, ol, li, a, strong, em, b, i, u, span, h1, h2, h3, h4, h5, h6');
+        if (!text && !meaningful) p.remove();
+      });
+
+      console.log('Converted linear HTML:', finalOut.innerHTML);
+      return finalOut.innerHTML.trim();
+    }
+
+    function proceedWithFormatting() {
+      const inputEl = document.getElementById('input');
+      const inputContent = inputEl.innerHTML;
+
+      // DEBUG: log raw pasted HTML before any processing
+      console.log('===== RAW PASTED HTML START =====');
+      console.log(inputContent);
+      console.log('===== RAW PASTED HTML END =====');
+
+      // DEBUG: inspect tables that the live DOM currently contains
+      const liveTables = inputEl.querySelectorAll('table');
+      console.log('===== LIVE TABLE INSPECTION =====');
+      console.log('Table count:', liveTables.length);
+      liveTables.forEach((table, tableIndex) => {
+        console.log(`-- Table ${tableIndex} outerHTML --`);
+        console.log(table.outerHTML);
+        const rows = table.querySelectorAll('tr');
+        console.log(`Row count: ${rows.length}`);
+        rows.forEach((row, rowIndex) => {
+          console.log(`Row ${rowIndex} outerHTML:`);
+          console.log(row.outerHTML);
+          row.querySelectorAll('td, th').forEach((cell, cellIndex) => {
+            console.log(`Cell ${rowIndex}.${cellIndex} tag=${cell.tagName}`);
+            console.log('textContent:', cell.textContent);
+            console.log('innerHTML:', cell.innerHTML);
+            console.log('outerHTML:', cell.outerHTML);
+          });
+        });
+      });
+
+      const cleaned = cleanAndLinearize(inputContent);
+
+      document.getElementById('output').value = cleaned;
+      document.getElementById('renderedOutput').innerHTML = cleaned || '<em>(No output)</em>';
+    }
+
+    async function copyRenderedOutputToClipboard() {
+      const renderedEl = document.getElementById('renderedOutput');
+      const html = renderedEl.innerHTML;
+      const text = renderedEl.innerText;
+
+      try {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+        showCopied();
+      } catch (err) {
+        try {
+          await navigator.clipboard.writeText(html);
+          showCopied();
+        } catch (err2) {
+          console.error('Clipboard copy failed', err2);
+          alert('Copy failed. Your browser may be blocking clipboard access.');
+        }
+      }
+    }
+
+    function addEventListeners() {
+      document.getElementById('formatButton').addEventListener('click', proceedWithFormatting);
+      document.getElementById('clearButton').addEventListener('click', () => {
+        document.getElementById('input').innerHTML = '';
+        document.getElementById('output').value = '';
+        document.getElementById('renderedOutput').innerHTML = '<strong>Preview</strong>';
+      });
+      document.getElementById('copyRenderedButton').addEventListener('click', copyRenderedOutputToClipboard);
+    }
+
+    document.addEventListener('DOMContentLoaded', addEventListeners);
+  </script>
+</body>
+</html>
