@@ -62,13 +62,15 @@
     </div>
 
 	<ul>
-		<li>Select the <strong>Copy  (for Docs)</strong> button and return to the CPG to paste these sections at the end of the appropriate assignment.</li>
+		<li>Select the <strong>Copy  (for Docs)</strong> button and return to the CPG to paste these sections at the end of the appropriate assignment.
+		<ul><li><strong><em>NOTE!</em></strong> The content you see in the window below may not appear as it will in Google Docs. This is ok!</li></ul>
+		</li>
 		<li>If you have already updated the rubric links in Canvas, these will transfer over to the CPG. It's a good idea to double check them after you've pasted them into the CPG.</li>
 	</ul>
 <div>
 	<textarea style="display: none;" id="output" rows="14" aria-label="Output HTML"></textarea>
       <div id="renderedOutput" class="rendered-content"><strong>Preview</strong></div>
-	 <button id="copyRenderedButton">Copy  (for Docs)</button>
+	 <button id="copyRenderedButton">Copy (for Docs)</button>
 	    <span id="copyStatus" style="margin-left: 10px; color: green; font-weight: 600; display: none;">Copied!</span>
     </div>
 </div>
@@ -115,7 +117,10 @@
 	    const h5 = doc.createElement("h5");
 
 	    // Explicit style attribute (survives serialization cleanly)
-	    h5.setAttribute("style", "font-size: 11pt;");
+	    h5.setAttribute(
+	      "style",
+	      "font-size:11pt; margin:0; margin-top:0; margin-bottom:0; padding:0; line-height:1.25;"
+	    );
 
 	    // move children
 	    while (h3.firstChild) {
@@ -123,6 +128,22 @@
 	    }
 
 	    h3.parentNode.replaceChild(h5, h3);
+	  });
+	}
+	
+	function normalizeBlockSpacing(doc) {
+	  doc.querySelectorAll("p").forEach(p => {
+	    p.setAttribute(
+		 "style",
+		 "margin:0; padding:0; line-height:1.25;"
+	    );
+	  });
+
+	  doc.querySelectorAll("ul").forEach(ul => {
+	    ul.setAttribute(
+		 "style",
+		 "margin:0; padding:0; line-height:1.25;"
+	    );
 	  });
 	}
 
@@ -163,7 +184,9 @@
         ]),
         "IMG": new Set(["src", "alt", "width", "height", "title"]),
         "IFRAME": new Set(["src", "title", "width", "height", "allowfullscreen", "webkitallowfullscreen", "mozallowfullscreen"]),
-	   "H5": new Set(["style"])
+	   "H5": new Set(["style"]),
+	   "P": new Set(["style"]),
+	   "UL": new Set(["style"])
  
       };
 
@@ -215,6 +238,9 @@
 
       // 3) Convert H3 -> H5
       renameHeadingTags(doc);
+	    
+	 // 3.5) Normalize paragraph/list spacing
+	 normalizeBlockSpacing(doc);
 
       // 4) Convert &nbsp; to normal spaces in text nodes
       replaceNbspInTextNodes(doc.body);
