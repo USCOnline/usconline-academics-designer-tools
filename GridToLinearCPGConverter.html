@@ -546,80 +546,82 @@
         return TABLE_SECTION_MAP.get(key) || label.trim();
       }
 
-      function convertTableToWeekBlocks(table) {
-        const matrix = buildTableMatrix(table);
-        if (!matrix.length) return '';
+      function convertTableToWeekBlocks(table, weekOffset = 0) {
+		  const matrix = buildTableMatrix(table);
+		  if (!matrix.length) return { html: '', weekCount: 0 };
 
-        const headerRow = matrix[0];
-        const weeks = [];
-        for (let c = 1; c < headerRow.length; c += 1) {
-          const headerCell = headerRow[c];
-          const label = headerCell && headerCell.text ? headerCell.text : `Week ${c}`;
-          weeks.push({
-            weekNumber: c,
-            label,
-            title: '',
-            sections: [],
-            sectionMap: new Map()
-          });
-        }
+		  const headerRow = matrix[0];
+		  const weeks = [];
 
-        let currentSectionLabel = '';
+		  for (let c = 1; c < headerRow.length; c += 1) {
+		    const headerCell = headerRow[c];
+		    const label = headerCell && headerCell.text ? headerCell.text : `Week ${weekOffset + c}`;
+		    weeks.push({
+			 weekNumber: weekOffset + c,
+			 label,
+			 title: '',
+			 sections: [],
+			 sectionMap: new Map()
+		    });
+		  }
 
-        for (let r = 1; r < matrix.length; r += 1) {
-          const row = matrix[r];
-          const firstCell = row[0];
-          const rowLabel = firstCell && firstCell.text ? firstCell.text : currentSectionLabel;
-          if (!rowLabel) continue;
+		  let currentSectionLabel = '';
 
-          currentSectionLabel = rowLabel;
-          const key = normalizeKey(rowLabel);
+		  for (let r = 1; r < matrix.length; r += 1) {
+		    const row = matrix[r];
+		    const firstCell = row[0];
+		    const rowLabel = firstCell && firstCell.text ? firstCell.text : currentSectionLabel;
+		    if (!rowLabel) continue;
 
-          if (key.indexOf('week title') === 0) {
-            weeks.forEach((week, weekIndex) => {
-              const cell = row[weekIndex + 1];
-              if (cell && cell.text) {
-                week.title = cell.text;
-              }
-            });
-            continue;
-          }
+		    currentSectionLabel = rowLabel;
+		    const key = normalizeKey(rowLabel);
 
-          const baseSection = sectionTitleFor(rowLabel);
+		    if (key.indexOf('week title') === 0) {
+			 weeks.forEach((week, weekIndex) => {
+			   const cell = row[weekIndex + 1];
+			   if (cell && cell.text) {
+				week.title = cell.text;
+			   }
+			 });
+			 continue;
+		    }
 
-          weeks.forEach((week, weekIndex) => {
-            const cell = row[weekIndex + 1];
-            if (!cell || !cell.html || !stripTextFromHtml(cell.html)) return;
+		    const baseSection = sectionTitleFor(rowLabel);
 
-            const displayTitle = `Week ${week.weekNumber} ${baseSection}`;
-            if (!week.sectionMap.has(displayTitle)) {
-              const entry = { title: displayTitle, parts: [] };
-              week.sectionMap.set(displayTitle, entry);
-              week.sections.push(entry);
-            }
-            week.sectionMap.get(displayTitle).parts.push(cell.html);
-          });
-        }
+		    weeks.forEach((week, weekIndex) => {
+			 const cell = row[weekIndex + 1];
+			 if (!cell || !cell.html || !stripTextFromHtml(cell.html)) return;
 
-        const out = doc.createElement('div');
-        weeks.forEach(week => {
-          createHeading('h2', week.title ? `Week ${week.weekNumber}: ${week.title}` : `Week ${week.weekNumber}`, out);
+			 const displayTitle = `Week ${week.weekNumber} ${baseSection}`;
+			 if (!week.sectionMap.has(displayTitle)) {
+			   const entry = { title: displayTitle, parts: [] };
+			   week.sectionMap.set(displayTitle, entry);
+			   week.sections.push(entry);
+			 }
+			 week.sectionMap.get(displayTitle).parts.push(cell.html);
+		    });
+		  }
 
-          week.sections.forEach(section => {
-            createHeading('h3', section.title, out);
-            section.parts.forEach((part, idx) => {
-              appendHtml(out, part);
-              if (idx < section.parts.length - 1) {
-                const spacer = doc.createElement('p');
-                spacer.innerHTML = '&nbsp;';
-                out.appendChild(spacer);
-              }
-            });
-          });
-        });
+		  const out = doc.createElement('div');
 
-        return out.innerHTML;
-      }
+		  weeks.forEach(week => {
+		    createHeading('h2', week.title ? `Week ${week.weekNumber}: ${week.title}` : `Week ${week.weekNumber}`, out);
+
+		    week.sections.forEach(section => {
+			 createHeading('h3', section.title, out);
+			 section.parts.forEach((part, idx) => {
+			   appendHtml(out, part);
+			   if (idx < section.parts.length - 1) {
+				const spacer = doc.createElement('p');
+				spacer.innerHTML = '&nbsp;';
+				out.appendChild(spacer);
+			   }
+			 });
+		    });
+		  });
+
+		  return { html: out.innerHTML, weekCount: weeks.length };
+		}
 
       function isLikelyBlockElement(node) {
         if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
@@ -708,41 +710,53 @@
           createHeading('h3', section.title, out);
           section.parts.forEach(part => appendHtml(out, part));
         });
+		 
 
         return { html: out.innerHTML, consumed };
       }
 
-      function processNode(node, out, consumed) {
-        if (!node || consumed.has(node)) return;
+      function processNode(node, out, consumed, seenTables, state) {
+		  if (!node || consumed.has(node)) return;
 
-        if (node.nodeType === Node.TEXT_NODE) {
-          const text = node.nodeValue || '';
-          if (text.trim()) out.appendChild(doc.createTextNode(text));
-          return;
-        }
+		  if (node.nodeType === Node.TEXT_NODE) {
+		    const text = node.nodeValue || '';
+		    if (text.trim()) out.appendChild(doc.createTextNode(text));
+		    return;
+		  }
 
-        if (node.nodeType !== Node.ELEMENT_NODE) return;
+		  if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-        const tag = node.tagName.toUpperCase();
-        if (tag === 'TABLE') {
-          appendHtml(out, convertTableToWeekBlocks(node));
-          return;
-        }
+		  const tag = node.tagName.toUpperCase();
 
-        if (node.querySelector && node.querySelector('table')) {
-          Array.from(node.childNodes).forEach(child => processNode(child, out, consumed));
-          return;
-        }
+		  if (tag === 'TABLE') {
+		    if (!seenTables.has(node)) {
+			 seenTables.add(node);
+			 const converted = convertTableToWeekBlocks(node, state.weekOffset);
+			 appendHtml(out, converted.html);
+			 state.weekOffset += converted.weekCount;
+		    }
+		    return;
+		  }
 
-        const html = serializeNode(node);
-        if (html) appendHtml(out, html);
-      }
+		  if (node.childNodes && node.childNodes.length) {
+		    Array.from(node.childNodes).forEach(child => processNode(child, out, consumed, seenTables, state));
+		    return;
+		  }
+
+		  const html = serializeNode(node);
+		  if (html) appendHtml(out, html);
+		}
 
       const finalOut = doc.createElement('div');
-      const courseLevel = buildCourseLevelHtml();
-      appendHtml(finalOut, courseLevel.html);
+	 const courseLevel = buildCourseLevelHtml();
+	 appendHtml(finalOut, courseLevel.html);
 
-      Array.from(doc.body.childNodes).forEach(node => processNode(node, finalOut, courseLevel.consumed));
+	 const seenTables = new WeakSet();
+	 const state = { weekOffset: 0 };
+
+	 Array.from(doc.body.childNodes).forEach(node => {
+	   processNode(node, finalOut, courseLevel.consumed, seenTables, state);
+	 });
 
       finalOut.querySelectorAll('p').forEach(p => {
         const text = (p.textContent || '').split(NBSP).join(' ').trim();
