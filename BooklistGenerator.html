@@ -685,15 +685,18 @@ textarea {
 			const weekMatch = h4Element.textContent.match(/week \d+/i);
 			let weekCategory = weekMatch ? weekMatch[0] : "n/a";
 
-			// Determine if the heading indicates "Recommended" or "Optional"
+			// Determine if the heading indicates "Recommended", "Optional", or "Example Project(s)"
 			const isRecommended = /recommended/i.test(h4Element.textContent);
 			const isOptional = /optional/i.test(h4Element.textContent);
+			const isExampleProjects = /example project(?:s)?/i.test(h4Element.textContent);
 
-			// Append "(recommended)" or "(optional)" to the weekCategory if applicable
+			// Append the label to the weekCategory if applicable
 			if (isRecommended) {
 				weekCategory += " (recommended)";
 			} else if (isOptional) {
 				weekCategory += " (optional)";
+			} else if (isExampleProjects) {
+				weekCategory += " (project)";
 			}
 
 			// Start with the first sibling
@@ -963,10 +966,10 @@ textarea {
 			// Create an array to store relevant nodes
 			const relevantContent = [];
 
-			// Regex to match "Week X Readings" or "Multimedia"
+			// Regex to match "Week X Readings", "Multimedia", or "Example Project(s)"
 			const readingsRegex = includeMultimedia
-				? /^week \d+.*(read(ings?)|multimedia).*$/i
-				: /^week \d+.*read(ings?).*$/i;
+				? /^week \d+.*(read(ings?)|multimedia|example project(?:s)?).*$/i
+				: /^week \d+.*(read(ings?)|example project(?:s)?).*$/i;
 
 			console.log('Include Multimedia:', includeMultimedia);
 			console.log('Found headings:', Array.from(headings).map(h => h.textContent.trim()));
