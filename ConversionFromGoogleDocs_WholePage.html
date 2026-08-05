@@ -1,0 +1,2734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whole Page CPG to Canvas Converter</title>
+<style>
+body {
+	font-family: Segoe, "Segoe UI", "DejaVu Sans", "Trebuchet MS", Verdana, "sans-serif";
+}
+textarea {
+	display: block;
+	width: 100%;
+	margin-bottom: 10px;
+}
+h1, h2 {
+	color: #990000;
+}
+#instructions {
+	margin: 15px;
+}
+#formatButton {
+	margin-left: 15px;
+}
+.contenteditable-container {
+	display: block;
+	max-height: 200px; /* Maximum height */
+	padding: 15px;
+	border: 1px solid #ccc;
+	margin: 15px;
+	overflow: auto; /* Enable scrolling */
+}
+.contenteditable {
+	min-height: 200px;
+	outline: none;
+}
+.rendered-content {
+	padding: 10px;
+	border: 1px solid #ccc;
+	margin-bottom: 10px;
+}
+.modal {
+	display: none;
+	position: fixed;
+	z-index: 1;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background-color: rgb(0,0,0);
+	background-color: rgba(0,0,0,0.4);
+	padding-top: 60px;
+}
+.modal-content {
+	background-color: #fefefe;
+	margin: 5% auto;
+	padding: 20px;
+	border: 1px solid #888;
+	width: 80%;
+}
+.modal-input {
+	width: 100%;
+	height: 2rem;
+}
+.close {
+	color: #aaa;
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+}
+.close:hover, .close:focus {
+	color: black;
+	text-decoration: none;
+	cursor: pointer;
+}
+#accordionOutputBox {
+	display: block;
+	padding: 15px;
+	margin-right: 15px;
+}
+.accordion {
+	cursor: pointer;
+	padding: 10px;
+	max-width: 1200px;
+	border: none;
+	text-align: left;
+	outline: none;
+	font-size: 15px;
+	font-weight: 700;
+	transition: 0.4s;
+	color: #990000;
+	background-color: #eeeeee;
+	-webkit-border-radius: 10px;
+	-moz-border-radius: 10px;
+	border-radius: 10px;
+	margin: 7px;
+	border: #000000, thin, solid;
+}
+.accordion.active, .accordion:hover, .sub-accordion.active, .sub-accordion:hover {
+	background-color: #ccc;
+}
+.panel {
+	padding: 0 18px;
+	display: none;
+	background-color: white;
+	overflow: hidden;
+	max-width: 1200px;
+}
+.sub-accordion {
+	background-color: #DDDDDD;
+	margin: 5px 0;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	padding: 5px;
+	max-width: 1200px;
+}
+.sub-panel {
+	display: none;
+	padding: 10px;
+	background-color: #f2f2f2;
+}
+.copy-btn {
+	background-color: #0000ff; /* Blue background */
+	border: none; /* Remove borders */
+	color: white; /* White text */
+	padding: 5px 10px; /* Some padding */
+	text-align: center; /* Centered text */
+	text-decoration: none; /* Remove underline */
+	display: inline-block; /* Make the button inline */
+	font-size: 16px; /* Increase font size */
+	margin-left: 5px; /* Space on the left */
+	cursor: pointer; /* Pointer/hand icon */
+	border-radius: 5px; /* Rounded corners */
+	align-self: flex-start; /* Align the copy button to the start */
+}
+.copy-btn:hover {
+	background-color: #000099; /* Darker blue on hover */
+}
+.code-preview-container {
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+}
+.code-container, .rendered-output {
+	width: 48%; /* Adjust the width as needed */
+}
+</style>
+</head>
+<body>
+<div id="userFacing">
+	<h1 style="font-size:18pt;">CPG to Canvas Converter - Whole Page</h1>
+	<div id="instructions">
+		<p><strong>Instructions:</strong></p>
+		<ol>
+			<li>Open your CPG in Google Docs</li>
+			<li>Copy the entire document </li>
+			<ul>
+				<li>Edit &gt; Select all</li>
+			</ul>
+			<li>Paste the content into the box below</li>
+			<li>Press the &quot;Format Me!&quot; button</li>
+			<li>Enter your course's icon URLs (from the "Icon Reference - DELETE AFTER BUILD" page in the Start Here Module) and select &quot;Submit&quot;
+				<ul>
+					<li>You can get these URLs by right-clicking the icon in Canvas and selecting &quot;Copy image address&quot;</li>
+				</ul>
+			</li>
+			<li>Open each section and press the &quot;Copy Code&quot; button.</li>
+			<li>Paste the content into the code view of the relevant Canvas page.
+				<ul><li>For most pages, you can now paste over everything! Select all &gt; Paste. EXCEPT for the following:</li>
+					<li>Course Overview/Outcomes - these sections need to be pasted separately for now</li>
+					<li>Course Readings</li>
+					<li>KCV pages &gt; Only paste the concepts. The Videos are not programmatically generated.</li>
+				</ul>
+			</li>
+		</ol>
+		<p><strong>Important Notes</strong></p>
+		<p>There may be edge cases where the content of the CPG falls outside the expected patterns that this program relies on. Therefore, it is <em>highly</em> recommended that you check the content in Canvas carefully to ensure it matches the CPG.</p>
+		<p>It would be helpful to keep a log of instances where the output does not match expectations. This will help improve the program to ensure the most consistent experience possible. </p>
+		<p><strong>Thank you!</strong></p>
+	</div>
+	<div id="inputArea">
+		<div class="contenteditable-container">
+			<div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
+		</div>
+	</div>
+	<div>
+		<button id="formatButton">Format Me!</button>
+	</div>
+	
+	<!-- Temporary Testing Output Boxes -->
+	<textarea style="display: none;" id="initialHtmlOutput" rows="15" aria-label="Initial HTML Output Box"></textarea>
+	<textarea style="display: none;" id="testOutput" rows="15" aria-label="Test Output Box"></textarea>
+	<!-- Output for Templated Items -->
+	<div id="accordionOutputBox"></div>
+	<div style="display: none;" id="renderedTestOutput" class="rendered-content"><strong>Test Visual Output</strong></div>
+	
+	<!-- The Modal -->
+	
+	<div id="myModal" class="modal">
+		<div class="modal-content"> <span class="close">&times;</span>
+			<h2>Is this a BVC or USCOnline Course?</h2>
+			<div>
+			  <label><input type="radio" name="courseType" value="BVC"> BVC</label>
+			  <label><input type="radio" name="courseType" value="USCO"> USCO</label>
+			  <p id="courseTypeError" style="color: red; display: none; margin-top: 8px;">
+			    Please select BVC or USCO before continuing.
+			  </p>
+			</div>
+			<h2>Enter Your Icon URLs</h2>
+			<label> <img src="images/overview2.png" alt="Overview icon" width="30"> Weekly Overview Icon URL
+				<input type="text" id="overviewIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/learningoutcome1.png" alt="Outcomes icon" width="30"> Weekly Outcomes Icon URL
+				<input type="text" id="outcomesIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/read.png" alt="Readings icon" width="30"> Weekly Readings Icon URL
+				<input type="text" id="readingsIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/presentation-1.png" alt="Multimedia icon" width="30"> Weekly Multimedia Icon URL
+				<input type="text" id="multimediaIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/idea-25.png" alt="Focus Questions icon" width="30"> Focus Questions Icon URL
+				<input type="text" id="focusIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/discussion.png" alt="Discussion icon" width="30"> Weekly Discussion Icon URL
+				<input type="text" id="discussionIconInput" class="modal-input">
+			</label>
+			<br>
+			<label> <img src="images/assignment.png" alt="Assignment/Activity icon" width="30"> Weekly Assignment/Activity Icon URL
+				<input type="text" id="assignmentIconInput" class="modal-input">
+			</label>
+			<br>
+			<button id="submitUrl">Submit</button>
+		</div>
+	</div>
+	
+	<!-- Added debug output textarea -->
+	<textarea style="display: none;" id="debugOutput" rows="15" aria-label="Debug Output Box"></textarea>
+</div>
+<script>
+    	// Configuration Object
+const config = {
+	patterns: {
+		italicSpan: /<span([^>]*?font-style:\s*italic[^>]*?)>(.*?)<\/span>/gi,
+		boldSpan: /<span([^>]*?font-weight:\s*700[^>]*?)>(.*?)<\/span>/gi,
+		removeSpan: /<\/?span[^>]*>/g,
+		anchorWithStyle: /<a([^>]*?)style="[^"]*?"([^>]*?)>/gi,
+		paragraphAndListItem: /<(p|li|h[1-6]|ul|ol)[^>]*>/gi,
+		paragraphInListItem: /<li[^>]*>\s*<(p|h3)[^>]*>(.*?)<\/\1>\s*<\/li>/gi,
+		nbsp: /&nbsp;/g,
+		referencePattern: /(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?\s*\(\s*(?:(?:Program\s*Learning\s(?:Outcome|Objective)\s*\[PLO\]|PLOs?|CLOs?|WLOs?)\s*\d+(?:[,\s–—-]*\d+)*(?:\s*;\s*(?:Program\s*Learning\s(?:Outcome|Objective)\s*\[PLO\]|PLOs?|CLOs?|WLOs?)\s*\d+(?:[,\s–—-]*\d+)*)?)\s*,?\)\s*(?:<em>\s*\(\s*[A-Za-z]+\s*\)\s*<\/em>|\(\s*<em>\s*[A-Za-z]+\s*\)\s*\)|<em>\s*\(\s*[A-Za-z]+\s*\)\s*\)|\(<em>[A-Za-z]+<\/em>\)|\([A-Za-z]+\)|<em>\([A-Za-z]+\s*<\/em>\)|\(<em>[A-Za-z]+\s*\)<\/em>|<em>[A-Za-z]+\)<\/em>)?/gi,
+		pagePattern: /\(\d+\s*pages?(?:,.*?)*\)/gi,
+		minutePattern: /\(\d+\\s*minutes?(?:,.*?)*\s*\)/gi,
+		brBetweenTags: />\s*<br\s*\/?>\s*</gi,
+		consecutiveLists: /<\/(ol|ul)>\s*<\1>/gi,
+		closingATag: /<\/a>([^ .!?,:])/g,
+		h1ToPStrong: /<h1>(.*?)<\/h1>/gi,
+		promoteHeadings: /<h([2-6])([^>]*)>(.*?)<\/h\1>/gi,
+		removeH3Sections: /Week\s*\d+\s*:?\s*(Topics)/i,
+		removeH2Sections: /\s*(Course Description|Course Topics|Course Preparation)/i,
+		noteParagraph: /<p>(<strong>\*<\/strong>|<strong><em>\*<\/em><\/strong>|<em><strong>\*<\/strong><\/em>|\*?)?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|Note:)\s*(.*)<\/p>/i,
+		readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia|Example Projects?)/i,
+		resourcesH3: /^\s*Week\s*\d+\s*(Resource|Resources)/i,
+
+	},
+	replacements: {
+		italicSpan: '<span$1><em>$2</em></span>',
+		boldSpan: '<span$1><strong>$2</strong></span>',
+		emptyString: '',
+		nbsp: ' ',
+		h1ToPStrong: '<p><strong>$1</strong></p>',
+		promoteHeadings(match, p1, p2, p3) {
+			const newLevel = parseInt(p1) - 1;
+			return `<h${newLevel}${p2}>${p3}</h${newLevel}>`;
+		},
+		removeAnchorStyle(match, p1, p2) {
+			return `<a${p1}${p2}>`;
+		}
+	},
+	icons: {
+		weeklyOverview: "",
+		weeklyOutcomes: "",
+		weeklyReadings: "",
+		weeklyMultimedia: "",
+		focusQuestions: "",
+		weeklyDiscussion: "",
+		weeklyAssignmentActivity: ""
+	},
+	courseType: '',
+	boilerplates: {},
+	};
+	
+config.boilerplates = {
+  weeklyOverviewOutcomes: {
+    icon1: "weeklyOverview",
+    icon2: "weeklyOutcomes",
+    content: (options = {}) => {
+      return `
+	   <hr style="border-width: 1px; width: 100%;" />
+	   <div style="padding: 4px 20px 4px 0;">
+	   <h2 style="color: #990000;">
+	     <img src="${config.icons.weeklyOverview}" alt="" width="75" height="75"
+		  data-api-endpoint="${config.icons.weeklyOverview}"
+		  data-api-returntype="File" data-decorative="true" />
+	     <strong>Overview</strong>
+	   </h2>
+	   <!-- Dynamic Content from "Weekly Overview" injected here -->
+	   <p>&nbsp;</p>
+	   <hr style="border-width: 1px; width: 100%;" />
+	   <h2 style="color: #990000;">
+	     <img src="${config.icons.weeklyOutcomes}" alt="" width="75" height="75"
+		  data-api-endpoint="${config.icons.weeklyOutcomes}"
+		  data-api-returntype="File" data-decorative="true" />
+	     <strong>Learning Outcomes</strong>
+	   </h2>
+	   <p>At the end of this module, you will be able to:</p>
+	   <!-- Dynamic Content from "Weekly Outcomes" injected here -->
+	   </div>
+	   <p>&nbsp;</p>
+      `;
+    }
+  },
+
+  weeklyReadings: {
+	icon: "weeklyReadings",
+	content: (options = {}) => {
+		const { weekNumber, hasOptional, hasExampleProjects } = options;
+
+		const courseReadingsUrl = getCourseReadingsUrl();
+
+		return `
+			<hr style="border-width: 1px;" />
+			<h2 style="color: #990000;">
+				<img src="${config.icons.weeklyReadings}" alt="" width="75" height="75"
+					data-api-endpoint="${config.icons.weeklyReadings}"
+					data-api-returntype="File" data-decorative="true" />
+				<strong>Required Readings</strong>
+			</h2>
+
+			${weekNumber === 1 ? `
+				<p><em><strong>Reminder</strong></em>: Many of the readings for your course
+				have been compiled using ARES. Other assigned readings appear in books that must be borrowed or purchased. See the <a href="${courseReadingsUrl}" data-api-endpoint="${courseReadingsUrl}"    data-api-returntype="Page">Course Readings</a> page if you have not acquired your readings.</p>
+				<p>&nbsp;</p>
+			` : ''}
+
+			<!-- REQUIRED_READINGS -->
+
+			${hasOptional ? `
+				<h2 style="color: #990000;">
+					<img src="${config.icons.weeklyReadings}" alt="" width="75" height="75"
+						data-api-endpoint="${config.icons.weeklyReadings}"
+						data-api-returntype="File" data-decorative="true" />
+					<strong>Optional Readings</strong>
+				</h2>
+				<!-- OPTIONAL_READINGS -->
+			` : ''}
+
+			${hasExampleProjects ? `
+				<h2 style="color: #990000;">
+					<img src="${config.icons.weeklyReadings}" alt="" width="75" height="75"
+						data-api-endpoint="${config.icons.weeklyReadings}"
+						data-api-returntype="File" data-decorative="true" />
+					<strong>Example Projects</strong>
+				</h2>
+				<!-- EXAMPLE_PROJECTS -->
+			` : ''}
+		`;
+	}
+},
+
+  weeklyMultimedia: {
+	icon: "weeklyMultimedia",
+	content: (options = {}) => {
+		const { hasOptionalMM } = options;
+
+		return `
+			<hr style="border-width: 1px;" />
+			<h2 style="color: #990000;">
+				<img src="${config.icons.weeklyMultimedia}" alt="" width="74" height="74"
+					data-api-endpoint="${config.icons.weeklyMultimedia}"
+					data-api-returntype="File" data-decorative="true" />
+				<strong>Videos and Multimedia</strong>
+			</h2>
+
+			<!-- REQUIRED_MULTIMEDIA -->
+
+			${hasOptionalMM ? `
+				<h2 style="color: #990000;">
+					<img src="${config.icons.weeklyMultimedia}" alt="" width="74" height="74"
+						data-api-endpoint="${config.icons.weeklyMultimedia}"
+						data-api-returntype="File" data-decorative="true" />
+					<strong>Optional Videos and Multimedia</strong>
+				</h2>
+				<!-- OPTIONAL_MULTIMEDIA -->
+			` : ''}
+		`;
+	}
+  },
+
+  weeklyDiscussion: {
+     icon: "weeklyDiscussion",
+     content: (options = {}) => {
+       const { weekNumber } = options;
+
+       const dueDates = getDueDates(config.courseType);
+
+       let reminderText = "";
+       if (weekNumber === 1) {
+         reminderText = `<h3 style="font-size: 14pt;"><strong>Strategies for Effective Discussions</strong></h3>
+           <p>Access tips for responding to discussion questions: <a    href="https://docs.google.com/document/d/10FrBNMyMJJGlIWYsSvQWiYKCgt4WqF0MemLr9x4ID6o/edit?usp=sharing" target="_blank"    rel="noopener">Strategies for Effective Discussions</a></p>
+         `;
+       }
+
+       return `
+         <hr style="border-width: 1px; width: 100%;" />
+         <h2 style="color: #990000;">
+           <img src="${config.icons.weeklyDiscussion}" alt="" width="75" height="75"
+             data-api-endpoint="${config.icons.weeklyDiscussion}"
+             data-api-returntype="File" data-decorative="true" />
+           <strong>Discussion</strong>
+         </h2>
+
+         <h3 style="font-size: 14pt;"><strong>Due Date</strong></h3>
+         ${dueDates.discussion}  
+
+         <h3 style="font-size: 14pt;"><strong>Focus Question</strong></h3>
+         <!-- Dynamic Content from "Weekly Discussion" injected here -->
+
+         <h3 style="font-size: 14pt;"><strong>Instructions</strong></h3>
+         <p>In one original post, please answer the focus question by providing supporting evidence from your module readings and    multimedia. Then, reply to at least two of your classmates&rsquo; posts in a substantive manner by asking questions or making    comments that will further the discussion.</p>
+
+         <h3 style="font-size: 14pt;"><strong>Rubric</strong></h3>
+         <p>Access the <a class="inline_disabled"    href="https://docs.google.com/document/d/1sCTZYyZJsXHLxaTdqq_BG8FC2NZEZtc7SN_eyVlRDRg/edit?usp=drive_link" target="_blank"    rel="noopener">Discussion Board Rubric</a></p>
+
+         ${reminderText}
+         <p>&nbsp;</p>
+       `;
+     }
+   },
+	
+  weeklyAssignment: {
+     icon: "weeklyAssignmentActivity",
+     content: (options = {}) => {
+
+       const dueDates = getDueDates(config.courseType);
+
+       return `
+         <hr style="border-width: 1px; width: 100%;" />
+         <h2 style="color: #990000;">
+           <img src="${config.icons.weeklyAssignmentActivity}" alt="" width="75" height="75"
+             data-api-endpoint="${config.icons.weeklyAssignmentActivity}"
+             data-api-returntype="File" data-decorative="true" />
+           <strong>Assignment: [Title]</strong>
+         </h2>
+
+         <h3 style="font-size: 14pt;"><strong>Due Date</strong></h3>
+         ${dueDates.assignment}  
+
+         <h3 style="font-size: 14pt;"><strong>Instructions</strong></h3>
+         <!-- Dynamic Content from "Weekly Assignment" injected here -->
+         <p>&nbsp;</p>
+       `;
+     }
+   },
+	
+  weeklyActivity: {
+    icon: "weeklyAssignmentActivity",
+    content: (options = {}) => {
+      return `
+        <hr style="border-width: 1px; width: 100%;" />
+        <h2 style="color: #990000;">
+          <img src="${config.icons.weeklyAssignmentActivity}" alt="" width="75" height="75"
+            data-api-endpoint="${config.icons.weeklyAssignmentActivity}"
+            data-api-returntype="File" data-decorative="true" />
+          <strong>Activity: [Title]</strong>
+        </h2>
+        <h3 style="font-size: 14pt;"><strong>Instructions</strong></h3>
+        <!-- Dynamic Content from "Weekly Activity" injected here -->
+        <p>&nbsp;</p>
+      `;
+    }
+  },
+	
+  weeklyFinalAssessment: {
+     icon: "weeklyAssignmentActivity",
+     content: (options = {}) => {
+
+       const dueDates = getDueDates(config.courseType); 
+
+       return `
+         <hr style="border-width: 1px; width: 100%;" />
+         <h2 style="color: #990000;">
+           <img src="${config.icons.weeklyAssignmentActivity}" alt="" width="75" height="75"
+             data-api-endpoint="${config.icons.weeklyAssignmentActivity}"
+             data-api-returntype="File" data-decorative="true" />
+           <strong>Final Assessment: [Title]</strong>
+         </h2>
+
+         <h3 style="font-size: 14pt;"><strong>Due Date</strong></h3>
+         ${dueDates.finalAssessment}
+
+         <h3 style="font-size: 14pt;"><strong>Instructions</strong></h3>
+         <!-- Dynamic Content from "Weekly Final Assessment" injected here -->
+         <p>&nbsp;</p>
+       `;
+     }
+   },
+	
+};
+
+function toTitleCase(text) {
+	const smallWords = /^(a|an|and|as|at|but|by|for|if|in|nor|of|on|or|so|the|to|up|yet)$/i;
+
+	return text.replace(/\w\S*/g, (txt, offset) => {
+
+		// Preserve acronyms / all caps
+		if (txt === txt.toUpperCase() || /[A-Z]{2,}/.test(txt)) {
+			return txt;
+		}
+
+		// Split on hyphen and process each part
+		const parts = txt.split('-').map((part, index) => {
+
+			// Always capitalize first word, after colon, or after hyphen
+			if (
+				offset === 0 ||
+				offset === text.indexOf(":") + 2 ||
+				index > 0 || // <-- THIS handles hyphen case
+				!smallWords.test(part)
+			) {
+				return part.charAt(0).toUpperCase() + part.substr(1).toLowerCase();
+			}
+
+			return part.toLowerCase();
+		});
+
+		return parts.join('-');
+	});
+}
+	
+function getDueDates(courseType) {
+	if (courseType === 'USCO') {
+		return {
+			discussion: `<p>Initial post due by 11:55pm PT on Thursday<br />Replies due by 11:55pm PT on Sunday</p>`,
+			assignment: `<p>Sunday, 11:55pm PT</p>`,
+			finalAssessment: `<p>Monday by 11:55pm PT</p>` // 👈 NEW
+		};
+	}
+
+	// Default BVC
+	return {
+		discussion: `<p>Initial post due by 11:59pm PT on Wednesday<br />Replies due by 11:59pm PT on Sunday</p>`,
+		assignment: `<p>Sunday, 11:59pm PT</p>`,
+		finalAssessment: `<p>Monday by 11:59pm PT</p>` // 👈 NEW
+	};
+}
+	
+function getCourseReadingsUrl() {
+	const iconUrl =
+		config.icons.focusQuestions ||
+		config.icons.weeklyReadings ||
+		config.icons.weeklyOverview ||
+		config.icons.weeklyOutcomes ||
+		config.icons.weeklyMultimedia ||
+		config.icons.weeklyDiscussion ||
+		config.icons.weeklyAssignmentActivity ||
+		'';
+
+	const match = iconUrl.match(
+		/^(https?:\/\/[^/]+\/courses\/\d+)\//i
+	);
+
+	if (!match) {
+		return '';
+	}
+
+	return `${match[1]}/pages/course-readings`;
+}
+
+function generateUniqueId(item) {
+	return item.textContent.trim().toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+const transformations = {
+	wrapItalicSpansWithEm(html, config) {
+		// Parse the HTML string to a DOM object
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		// First handle the specific case for italics in spans under certain conditions
+		doc.querySelectorAll('li[style*="font-style: italic"] p span').forEach(span => {
+			// Check if the span does not explicitly have 'font-style: normal;'
+			const spanStyle = span.getAttribute('style');
+			if (!spanStyle || !spanStyle.includes('font-style: normal')) {
+				// Check if the content is not already wrapped with em (to prevent double wrapping)
+				if (!span.querySelector('em')) {
+					// Create an em element and wrap the content of the span
+					const em = document.createElement('em');
+					em.innerHTML = span.innerHTML;
+					span.innerHTML = '';
+					span.appendChild(em);
+				}
+			}
+		});
+
+		// Convert the updated DOM back to HTML string
+		let updatedHtml = doc.body.innerHTML;
+
+		// Now handle the general case with regex
+		updatedHtml = updatedHtml.replace(config.patterns.italicSpan, config.replacements.italicSpan);
+
+		return updatedHtml;
+	},
+	wrapNextParagraphFirstBoldSpanWithStrong(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		const liElements = doc.querySelectorAll('li[style*="font-weight: 700"]');
+
+		liElements.forEach(li => {
+			const style = li.getAttribute('style');
+			if (style && /font-weight:\s*700/.test(style)) {
+				const nextP = li.querySelector('p');
+				if (nextP) {
+					const span = nextP.querySelector('span');
+					if (span) {
+						let spanStyle = span.getAttribute('style') || '';
+						if (!/font-weight:\s*700/.test(spanStyle)) {
+							span.setAttribute('style', `${spanStyle} font-weight: 700;`);
+						}
+					}
+				}
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+	wrapBoldSpansWithStrong(html, config) {
+		return html.replace(config.patterns.boldSpan, config.replacements.boldSpan);
+	},
+	removeSpanTags(html, config) {
+		return html.replace(config.patterns.removeSpan, config.replacements.emptyString);
+	},
+	clearParagraphAndListItemAttributes(html, config) {
+		return html.replace(/<(p|li|h[1-6]|ul|ol)([^>]*)>/gi, (match, p1, p2) => {
+			const ariaLevelMatch = p2.match(/aria-level="[^"]*"/);
+			const ariaLevel = ariaLevelMatch ? ` ${ariaLevelMatch[0]}` : '';
+			return `<${p1}${ariaLevel}>`;
+		});
+	},
+	removeParagraphAndHeadingTagsInsideListItems(html, config) {
+		return html.replace(/<li([^>]*)>\s*<(p|h[1-6])([^>]*)>(.*?)<\/\2>\s*<\/li>/gi, (match, liAttrs, tag, tagAttrs, content) => {
+			const ariaLevelMatch = tagAttrs.match(/aria-level="([^"]*)"/);
+			const ariaLevel = ariaLevelMatch ? ` aria-level="${ariaLevelMatch[1]}"` : '';
+			return `<li${liAttrs}${ariaLevel}>${content}</li>`;
+		});
+	},
+	removeAnchorStyles(html, config) {
+		return html.replace(config.patterns.anchorWithStyle, config.replacements.removeAnchorStyle);
+	},
+	convertNbspToSpaces(html, config) {
+		return html.replace(config.patterns.nbsp, config.replacements.nbsp);
+	},
+	removePatterns(html, config) {
+		return html.replace(config.patterns.referencePattern, config.replacements.emptyString)
+			.replace(config.patterns.pagePattern, config.replacements.emptyString)
+			.replace(config.patterns.minutePattern, config.replacements.emptyString);
+	},
+	normalizeItalicSpaces(html, config) {
+	    return html.replace(/<em>\s*<\/em>/gi, ' ');
+	},
+	removeEmptyElements(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		// List of tags to check for emptiness
+		const tagsToCheck = ['span', 'strong', 'em', 'div', 'p', 'li', 'a', 'h3'];
+
+		// Iterate over each tag type
+		tagsToCheck.forEach(tag => {
+			doc.querySelectorAll(tag).forEach(element => {
+				// Special case for <p> tags with &nbsp;
+				if (tag === 'p') {
+					if (element.innerHTML.trim() === '&nbsp;') {
+						return; // Preserve <p> tags containing only &nbsp;
+					}
+				}
+
+				// Check if the element is not an iframe and is truly empty
+				if (!element.textContent.trim() && !element.querySelector('iframe')) {
+					element.remove();
+				}
+			});
+		});
+
+
+		return doc.body.innerHTML;
+	},
+	removeBrBetweenTags(html, config) {
+		return html.replace(config.patterns.brBetweenTags, '><');
+	},
+	findBrokenLists(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const noteParagraphs = doc.querySelectorAll('p');
+
+		noteParagraphs.forEach(p => {
+			const previousElement = p.previousElementSibling;
+			const nextElement = p.nextElementSibling;
+
+			if (
+				previousElement && (previousElement.tagName === 'UL' || previousElement.tagName === 'OL')
+				&& nextElement && (nextElement.tagName === 'UL' || nextElement.tagName === 'OL')
+				&& config.patterns.noteParagraph.test(p.outerHTML)
+			) {
+				console.log(`Found broken list around <p> with text: ${p.textContent}`);
+
+				// Generate unique ID for the last list item of the previous list
+				const lastItem = previousElement.lastElementChild;
+				if (lastItem) {
+					const uniqueId = generateUniqueId(lastItem);
+					lastItem.setAttribute('data-unique-id', uniqueId);
+
+					// Store the paragraph's content in the array along with the unique ID
+					noteParagraphsArray.push({
+						uniqueId: uniqueId,
+						content: p.innerHTML
+					});
+
+					// Remove the paragraph from the document
+					p.remove();
+
+				}
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+/* NO LONGER NEEDED
+	properlyNestAdjacentLists(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		const isList = el => el && (el.tagName === 'OL' || el.tagName === 'UL');
+
+		// Only repair sibling lists that are still at the top level.
+		// If a list is already inside an <li>, leave it alone.
+		Array.from(doc.querySelectorAll('ol, ul')).forEach(list => {
+			if (list.closest('li')) return;
+
+			let nextElement = list.nextElementSibling;
+
+			while (isList(nextElement)) {
+				let lastLi = list.lastElementChild;
+
+				if (!lastLi || lastLi.tagName !== 'LI') {
+					lastLi = doc.createElement('li');
+					list.appendChild(lastLi);
+				}
+
+				// Move the sibling list inside the last <li>, preserving its tag and style.
+				lastLi.appendChild(nextElement);
+				nextElement = list.nextElementSibling;
+			}
+		});
+
+		// Clean up any empty lists that may remain from prior passes.
+		doc.querySelectorAll('ol, ul').forEach(list => {
+			if (!list.querySelector('li')) {
+				list.remove();
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+*/
+	mergeConsecutiveLists(html, config) {
+		return html.replace(config.patterns.consecutiveLists, '');
+	},
+	combineAdjacentLinks(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		const links = doc.querySelectorAll('a[href]');
+		links.forEach((link, index) => {
+			const nextSibling = link.nextSibling;
+			if (nextSibling && nextSibling.nodeType === Node.ELEMENT_NODE && nextSibling.tagName === 'A') {
+				const nextLink = nextSibling;
+				if (nextLink.getAttribute('href') === link.getAttribute('href')) {
+					link.textContent += nextLink.textContent;
+					nextLink.remove();
+				}
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+	
+	// renestListsByAriaLevel Rebuilds nested list structure from Google Docs aria-level markers
+	// while preserving the original list type (OL vs UL) and cleaning
+	// up empty wrapper lists.
+	renestListsByAriaLevel(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		const levelMap = new Map();
+
+		function getSourceListTag(li) {
+			const parent = li.parentElement;
+			return parent && (parent.tagName === 'OL' || parent.tagName === 'UL')
+				? parent.tagName.toLowerCase()
+				: 'ul';
+		}
+
+		function getOrCreateDirectChildList(parentLi, listTag) {
+			const upperTag = listTag.toUpperCase();
+
+			// Only reuse a direct child list, not any deeper descendant list.
+			let nestedList = Array.from(parentLi.children).find(
+				el => el.tagName === upperTag
+			);
+
+			if (!nestedList) {
+				nestedList = doc.createElement(listTag);
+				parentLi.appendChild(nestedList);
+			}
+
+			return nestedList;
+		}
+
+		function clearDeeperLevels(fromLevel) {
+			for (const key of Array.from(levelMap.keys())) {
+				if (key > fromLevel) {
+					levelMap.delete(key);
+				}
+			}
+		}
+
+		function cleanupEmptyLists(root) {
+			let removedSomething = true;
+
+			while (removedSomething) {
+				removedSomething = false;
+
+				root.querySelectorAll('ol, ul').forEach(list => {
+					if (!list.querySelector('li')) {
+						list.remove();
+						removedSomething = true;
+					}
+				});
+			}
+		}
+
+		const items = Array.from(doc.querySelectorAll('li[aria-level]'));
+
+		items.forEach(item => {
+			const ariaLevel = parseInt(item.getAttribute('aria-level'), 10);
+			if (!Number.isFinite(ariaLevel)) return;
+
+			// Root-level items anchor the current branch.
+			if (ariaLevel === 1) {
+				levelMap.set(1, item);
+				clearDeeperLevels(1);
+				return;
+			}
+
+			// Find the nearest available parent level.
+			let parentLevel = ariaLevel - 1;
+			while (parentLevel > 0 && !levelMap.has(parentLevel)) {
+				parentLevel--;
+			}
+
+			const parentItem = levelMap.get(parentLevel);
+			if (!parentItem) return;
+
+			// Preserve the original list type from Google Docs.
+			const sourceListTag = getSourceListTag(item);
+			const nestedList = getOrCreateDirectChildList(parentItem, sourceListTag);
+
+			nestedList.appendChild(item);
+
+			// Track this item as the latest item at this level.
+			levelMap.set(ariaLevel, item);
+			clearDeeperLevels(ariaLevel);
+		});
+
+		cleanupEmptyLists(doc.body);
+
+		return doc.body.innerHTML;
+	},
+	removeInternalAssignmentAssetsSections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const headings = Array.from(doc.querySelectorAll('h3, h4, h5, h6'));
+
+		headings.forEach(heading => {
+			// Trim and compare heading text
+			if (/^internal assignment assets$/i.test(heading.textContent.trim())) {
+				// Get the current heading level
+				const currentLevel = parseInt(heading.tagName[1]);
+
+				// Remove heading itself
+				let toRemove = [heading];
+
+				// Start with the next sibling after the heading
+				let next = heading.nextElementSibling;
+				while (next) {
+					// If next is a heading of the same or higher level, stop
+					if (/^H[3-6]$/.test(next.tagName) && parseInt(next.tagName[1]) <= currentLevel) {
+						break;
+					}
+					toRemove.push(next);
+					next = next.nextElementSibling;
+				}
+
+				// Remove all collected elements
+				toRemove.forEach(el => el && el.parentNode && el.parentNode.removeChild(el));
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+	adjustExternalLinks(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		doc.querySelectorAll('a[href*="usc.edu"]').forEach(link => {
+			link.target = "_blank";
+			link.rel = "noreferrer noopener";
+			link.title = "External Link";
+		});
+
+		return doc.body.innerHTML;
+	},
+	adjustListStyles(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		doc.querySelectorAll('ol, ul').forEach(tag => {
+			tag.style.paddingLeft = '15px';
+			tag.style.paddingRight = '20px';
+		});
+
+		return doc.body.innerHTML;
+	},
+	unwrapItalicPunctuation(html, config) {
+		// Convert <em>.</em> or <em>. </em> to ". " when followed by text
+		html = html.replace(/<em>\s*([.,;:!?])\s*<\/em>(?=\S)/g, '$1 ');
+
+		// If punctuation is italicized and already followed by whitespace, just unwrap it
+		html = html.replace(/<em>\s*([.,;:!?])\s*<\/em>/g, '$1');
+
+		return html;
+	},
+	addSpaceAfterClosingATag(html, config) {
+		// Add a space only when </a> is followed by a word character
+		return html.replace(/<\/a>(?=[A-Za-z0-9(])/g, '</a> ');
+	},
+	convertH1ToPStrong(html, config) {
+		return html.replace(config.patterns.h1ToPStrong, config.replacements.h1ToPStrong);
+	},
+	promoteHeadings(html, config) {
+		// First Promotion: Generic heading promotion (h5 -> h4, h4 -> h3, etc.)
+		html = html.replace(config.patterns.promoteHeadings, config.replacements.promoteHeadings);
+
+		// Second Promotion: Upgrade specific <h4> to <h3> if they contain target keywords
+		const keywordPattern = /<h4([^>]*)>(.*?(?:Instructions|Formatting|Rubric|Reference|References).*?)<\/h4>/gi;
+		html = html.replace(keywordPattern, '<h3$1 style="font-size: 14pt;"><strong>$2</strong></h3>');
+
+		return html;
+	},
+	filterRelevantH3Sections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h3Elements = doc.querySelectorAll('h3');
+
+		h3Elements.forEach(h3 => {
+			if (config.patterns.removeH3Sections.test(h3.textContent)) {
+				if (h3.nextElementSibling) {
+					h3.nextElementSibling.remove();
+				}
+				h3.remove();
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+	filterRelevantH2Sections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h2Elements = doc.querySelectorAll('h2');
+
+		h2Elements.forEach(h2 => {
+			if (config.patterns.removeH2Sections.test(h2.textContent)) {
+				if (h2.nextElementSibling) {
+					h2.nextElementSibling.remove();
+				}
+				h2.remove();
+			}
+		});
+
+		return doc.body.innerHTML;
+	},
+	removeH1s(html) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const h1Elements = doc.querySelectorAll('h1');
+
+		h1Elements.forEach(h1 => {
+			h1.remove();
+		});
+
+		return doc.body.innerHTML;
+	},
+
+};
+
+const noteParagraphsArray = [];
+	
+function normalizeText(text) {
+	return (text || '').replace(/\s+/g, ' ').trim();
+}
+	
+function looksLikeWeekModuleTitle(text) {
+	return /^(Week\s*\d+\b.*|Module\s*\d+\b.*)$/i.test(text);
+}
+
+function extractTitleAndContentAfterHeading(h3, options = {}) {
+	const {
+		stopAtH3 = true
+	} = options;
+
+	let currentElement = h3.nextElementSibling;
+	let title = '';
+	const parts = [];
+	let titleCaptured = false;
+
+	while (
+		currentElement &&
+		currentElement.tagName !== 'H2' &&
+		(!stopAtH3 || currentElement.tagName !== 'H3')
+	) {
+		const isBoldParagraph =
+			currentElement.tagName === 'P' &&
+			currentElement.querySelector('strong');
+
+		if (!titleCaptured && isBoldParagraph) {
+			title = normalizeText(currentElement.textContent);
+			titleCaptured = true;
+		} else {
+			parts.push(currentElement.outerHTML);
+		}
+
+		currentElement = currentElement.nextElementSibling;
+	}
+
+	return {
+		title,
+		contentHtml: parts.join('\n')
+	};
+}
+	
+function extractTitleAndContentAfterAssignmentHeading(h3) {
+	let currentElement = h3.nextElementSibling;
+	const parts = [];
+	let title = '';
+	let titleCaptured = false;
+
+	while (currentElement) {
+		if (currentElement.tagName === 'H3') {
+			const headingText = normalizeText(currentElement.textContent);
+
+			// Keep these inside the current assignment/activity
+			if (/^(Reference|References|Formatting|Rubric)$/i.test(headingText)) {
+				parts.push(currentElement.outerHTML);
+			} else {
+				// Any other H3 means the next assignment/activity begins
+				break;
+			}
+		} else if (currentElement.tagName === 'H2') {
+			break;
+		} else {
+			const isBoldParagraph =
+				currentElement.tagName === 'P' &&
+				currentElement.querySelector('strong');
+
+			if (!titleCaptured && isBoldParagraph) {
+				title = normalizeText(currentElement.textContent);
+				titleCaptured = true;
+			} else {
+				parts.push(currentElement.outerHTML);
+			}
+		}
+
+		currentElement = currentElement.nextElementSibling;
+	}
+
+	return {
+		title,
+		contentHtml: parts.join('\n')
+	};
+}
+	
+function extractStaticCourseTabs(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const targets = [
+		{ title: 'Canvas Course Overview', re: /^Canvas Course Overview$/i },
+		{ title: 'Course Learning Objectives (CLOs)', re: /^Course Learning Objectives(?:\s*\(CLOs\))?$/i },
+		{ title: 'Course Readings', re: /^Course Readings$/i }
+	];
+
+	const sections = [];
+	let activeSection = null;
+
+	Array.from(doc.body.children).forEach(child => {
+		if (child.tagName === 'H2') {
+			const headingText = normalizeText(child.textContent || '');
+			const target = targets.find(t => t.re.test(headingText));
+
+			if (target) {
+				if (activeSection) {
+					sections.push(activeSection);
+				}
+
+				activeSection = {
+					title: target.title,
+					content: child.outerHTML,
+					subSections: []
+				};
+				return;
+			}
+
+			if (activeSection) {
+				sections.push(activeSection);
+				activeSection = null;
+			}
+		}
+
+		if (activeSection) {
+			activeSection.content += child.outerHTML;
+		}
+	});
+
+	if (activeSection) {
+		sections.push(activeSection);
+	}
+
+	return sections;
+}
+	
+function getClosestPreviousH2(element) {
+	let current = element.previousElementSibling;
+
+	while (current) {
+		if (current.tagName === 'H2') {
+			const text = normalizeText(current.textContent);
+			if (looksLikeWeekModuleTitle(text)) {
+				return text;
+			}
+		}
+		current = current.previousElementSibling;
+	}
+
+	return '';
+}
+
+function captureModuleTitleForWeek(weekBucket, h3Element) {
+	const moduleTitle = getClosestPreviousH2(h3Element);
+	if (moduleTitle && !weekBucket.moduleTitle) {
+		weekBucket.moduleTitle = moduleTitle;
+	}
+}	
+	
+function getWeekNumberFromHeading(text) {
+	const match = normalizeText(text).match(/Week\s*(\d+)/i);
+	return match ? parseInt(match[1], 10) : null;
+}
+
+function isReadingsHeading(text) {
+	return /Week\s*\d+\s*(Required Readings|Optional Readings?|Recommended Readings?)/i.test(text);
+}
+
+function isMultimediaHeading(text) {
+	return /Week\s*\d+\s*(Multimedia|Optional Multimedia|Recommended Multimedia)/i.test(text);
+}
+	
+function isExampleProjectsHeading(text) {
+	return /Week\s*\d+\s*Example Projects?/i.test(text);
+}
+
+function extractSectionItemsFromList(listElement, h3Element, sectionType) {
+	const items = [];
+	const listItems = Array.from(listElement.querySelectorAll('li[aria-level="1"]'));
+
+	listItems.forEach(li => {
+		const variables = extractVariablesFromHTML(li, h3Element);
+		items.push({
+			title: variables.readingTitle || '',
+			categoryTitle: variables.categoryTitle || '',
+			headingTag: variables.headingTag || 'h3',
+			headingSize: variables.headingSize || '12pt',
+			headingPrefix: variables.headingPrefix || '',
+			chapterText: variables.chapterText || '',
+			associatedParagraph: variables.associatedParagraph || '',
+			additionalContent: variables.additionalContent || '',
+			citation: variables.citation || '',
+			focusQuestions: variables.focusQuestions || [],
+			iframeTemplate: variables.iframeTemplate || '',
+			sectionType,
+			rawHtml: li.outerHTML
+		});
+	});
+
+	return items;
+}
+
+function extractReadings(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				required: [],
+				optional: [],
+				exampleProjects: [],   // NEW
+				hasOptional: false
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+		const isExample = isExampleProjectsHeading(text);
+
+		if (!isReadingsHeading(text) && !isExample) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		const sectionIsOptional = !isExample && /Optional|Recommended/i.test(text);
+		if (sectionIsOptional) weekBucket.hasOptional = true;
+
+		let currentElement = h3.nextElementSibling;
+		let currentCategoryTitle = '';
+
+		while (currentElement && currentElement.tagName !== 'H3') {
+			if (currentElement.tagName === 'H4') {
+				currentCategoryTitle = normalizeText(currentElement.textContent);
+			} else if (currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+				const items = extractSectionItemsFromList(
+					currentElement,
+					h3,
+					isExample ? 'example' : (sectionIsOptional ? 'optional' : 'required')
+				);
+
+				items.forEach(item => {
+					if (!item.categoryTitle) item.categoryTitle = currentCategoryTitle;
+
+					if (isExample) {
+						weekBucket.exampleProjects.push(item);
+					} else if (sectionIsOptional) {
+						weekBucket.optional.push(item);
+					} else {
+						weekBucket.required.push(item);
+					}
+				});
+			}
+
+			currentElement = currentElement.nextElementSibling;
+		}
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+
+function renderReadingsItem(item, options = {}) {
+	const focusQuestionIconURL = options.focusQuestionIconURL || '';
+	const showFocusQuestions = Array.isArray(item.focusQuestions) && item.focusQuestions.length > 0;
+	const displayTitle = `${item.headingPrefix || ''}${item.chapterText || ''} ${item.title || ''}`.trim();
+
+	let html = '';
+
+	if (item.categoryTitle) {
+		html += `<h3 style="font-size: 12pt;"><strong>${item.categoryTitle}</strong></h3>`;
+	}
+
+	html += `
+		<${item.headingTag || 'h3'} style="font-size: ${item.headingSize || '12pt'};">
+			<strong>${displayTitle}${item.associatedParagraph ? '*' : ''}</strong>
+			${item.additionalContent || ''}
+		</${item.headingTag || 'h3'}>
+		<p>${item.citation || ''}</p>
+		${item.associatedParagraph ? `<p>${item.associatedParagraph}</p>` : ''}
+		${showFocusQuestions ? `
+		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		<ul style="padding-left: 15px; padding-right: 20px;">
+			${item.focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
+		</ul>` : ''}
+		${item.iframeTemplate || ''}
+		<p>&nbsp;</p>
+	`;
+
+	return html;
+}
+
+function renderMultimediaItem(item, options = {}) {
+	const focusQuestionIconURL = options.focusQuestionIconURL || '';
+	const showFocusQuestions = Array.isArray(item.focusQuestions) && item.focusQuestions.length > 0;
+	const displayTitle = `${item.headingPrefix || ''}${item.chapterText || ''} ${item.title || ''}`.trim();
+
+	let html = `
+		<${item.headingTag || 'h3'} style="font-size: ${item.headingSize || '12pt'};">
+			<strong>${displayTitle}${item.associatedParagraph ? '*' : ''}</strong>
+			${item.additionalContent || ''}
+		</${item.headingTag || 'h3'}>
+		<p>${item.citation || ''}</p>
+		${item.associatedParagraph ? `<p>${item.associatedParagraph}</p>` : ''}
+	`;
+
+	if (showFocusQuestions) {
+		html += `
+		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		<ul style="padding-left: 15px; padding-right: 20px;">
+			${item.focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
+		</ul>`;
+	}
+
+	html += `
+		${item.iframeTemplate || ''}
+		<p>&nbsp;</p>
+	`;
+
+	return html;
+}	
+	
+function extractMultimedia(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				required: [],
+				optional: [],
+				hasOptionalMM: false
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+		if (!isMultimediaHeading(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		const sectionIsOptional = /Optional|Recommended/i.test(text);
+		if (sectionIsOptional) weekBucket.hasOptionalMM = true;
+
+		let currentElement = h3.nextElementSibling;
+		let currentCategoryTitle = '';
+
+		while (currentElement && currentElement.tagName !== 'H3') {
+			if (currentElement.tagName === 'H4') {
+				currentCategoryTitle = normalizeText(currentElement.textContent);
+			} else if (currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+				const items = extractSectionItemsFromList(
+					currentElement,
+					h3,
+					sectionIsOptional ? 'optional' : 'required'
+				);
+
+				items.forEach(item => {
+					if (!item.categoryTitle) item.categoryTitle = currentCategoryTitle;
+
+					if (sectionIsOptional) {
+						weekBucket.optional.push(item);
+					} else {
+						weekBucket.required.push(item);
+					}
+				});
+			}
+
+			currentElement = currentElement.nextElementSibling;
+		}
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+
+function extractDiscussion(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				discussions: [],
+				hasWeek1Extras: false
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+		if (!/Week\s*\d+.*Discussion/i.test(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		let currentElement = h3.nextElementSibling;
+		const contentParts = [];
+
+		while (currentElement && currentElement.tagName !== 'H2' && currentElement.tagName !== 'H3') {
+			if (
+				currentElement.tagName === 'P' ||
+				currentElement.tagName === 'UL' ||
+				currentElement.tagName === 'OL' ||
+				currentElement.tagName === 'H4'
+			) {
+				contentParts.push(currentElement.outerHTML);
+			}
+			currentElement = currentElement.nextElementSibling;
+		}
+
+		if (weekNumber === 1) {
+			weekBucket.hasWeek1Extras = true;
+		}
+
+		weekBucket.discussions.push({
+			title: normalizeText(text)
+				.replace(/^\s*Week\s*\d+\s*/i, '')
+				.replace(/\s*Discussion\s*$/i, '')
+				.trim() || 'Discussion',
+			contentHtml: contentParts.join('\n')
+		});
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+	
+function extractAssignment(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				assignments: []
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+		if (!/Week\s*\d+.*Assignment/i.test(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		const extracted = extractTitleAndContentAfterAssignmentHeading(h3);
+
+		weekBucket.assignments.push({
+			title: extracted.title || 'Assignment',
+			contentHtml: extracted.contentHtml
+		});
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+	
+function isFinalAssessmentHeading(text) {
+	return /Week\s*(8|16)\s*:?\s*Final Assessment/i.test(text);
+}
+
+function extractFinalAssessment(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				finalAssessments: []
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const headings = Array.from(doc.querySelectorAll('h2, h3'));
+
+	headings.forEach(heading => {
+		const text = normalizeText(heading.textContent || '');
+		if (!isFinalAssessmentHeading(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text) || 16;
+		const weekBucket = getWeekBucket(weekNumber);
+
+		if (!weekBucket.moduleTitle) {
+			weekBucket.moduleTitle = text;
+		}
+
+		let currentElement = heading.nextElementSibling;
+		const parts = [];
+		let title = '';
+		let titleCaptured = false;
+
+		while (currentElement && currentElement.tagName !== 'H2') {
+			const isBoldParagraph =
+				currentElement.tagName === 'P' &&
+				currentElement.querySelector('strong');
+
+			if (!titleCaptured && isBoldParagraph) {
+				title = normalizeText(currentElement.textContent);
+				titleCaptured = true;
+			} else {
+				parts.push(currentElement.outerHTML);
+			}
+
+			currentElement = currentElement.nextElementSibling;
+		}
+
+		weekBucket.finalAssessments.push({
+			title: title || 'Final Assessment',
+			contentHtml: parts.join('\n')
+		});
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+	
+function extractActivity(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				activities: []
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+		if (!/Week\s*\d+.*Activity/i.test(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		const extracted = extractTitleAndContentAfterAssignmentHeading(h3);
+
+		weekBucket.activities.push({
+			title: extracted.title || 'Activity',
+			contentHtml: extracted.contentHtml
+		});
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}
+	
+function extractOverviewOutcomes(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				overviewHtml: '',
+				outcomesHtml: ''
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = h3.textContent || '';
+
+		if (
+			!/Week\s*\d+\s*[:\-]?\s*Overview\s*$/i.test(text) &&
+			!/Week\s*\d+.*(Learning Outcomes|Outcomes|Objectives)/i.test(text)
+		) {
+			return;
+		}
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		let currentElement = h3.nextElementSibling;
+		const parts = [];
+
+		while (currentElement && currentElement.tagName !== 'H3') {
+			if (
+				currentElement.tagName === 'P' ||
+				currentElement.tagName === 'UL' ||
+				currentElement.tagName === 'OL' ||
+				currentElement.tagName === 'H4'
+			) {
+				parts.push(currentElement.outerHTML);
+			}
+			currentElement = currentElement.nextElementSibling;
+		}
+
+		if (/Overview/i.test(text)) {
+			weekBucket.overviewHtml = parts.join('\n');
+		} else if (/(Learning Outcomes|Outcomes|Objectives)/i.test(text)) {
+			weekBucket.outcomesHtml = parts.join('\n');
+		}
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
+		baseUrl: ''
+	};
+}	
+	
+function extractVariablesFromHTML(liElement, h3Element) {
+	let headingSize = (/readings?|example projects?/i.test(h3Element.textContent)) ? '12pt' : '14pt';
+	let headingTag = 'h3'; // Default tag for regular readings
+	let categoryTitle = '';
+
+	// Ensure we start checking from the list container's immediate sibling
+	let currentElement = liElement.parentNode; // This is the UL or OL element
+	let previousElement = currentElement.previousElementSibling; // Start with the immediate previous sibling
+
+	// Log the HTML of the list container to see the surrounding structure
+	//console.log("HTML just before checking siblings:", currentElement.outerHTML);
+
+	//console.log("Starting to check siblings for H4...");
+
+	while (previousElement && previousElement !== h3Element) {
+		console.log(`Checking sibling: ${previousElement.tagName}`); // Detailed debugging
+		if (previousElement.tagName === 'H4') {
+			headingTag = 'h4';
+			categoryTitle = previousElement.textContent.trim();
+			console.log(`Categorized Reading Detected under H4: ${categoryTitle}`);
+			break;
+		}
+		previousElement = previousElement.previousElementSibling; // Move to the previous sibling
+	}
+
+	if (!categoryTitle) { // If no H4 was found, log the outcome
+		console.log("No H4 found before the list.");
+	}
+
+	const aElement = liElement.querySelector('a');
+	const readingTitle = aElement ? toTitleCase(aElement.textContent.trim()) : '';
+	let associatedParagraph = '';
+
+	const uniqueId = liElement.getAttribute('data-unique-id');
+	const noteParagraph = noteParagraphsArray.find(note => note.uniqueId === uniqueId);
+	if (noteParagraph) {
+		associatedParagraph = noteParagraph.content;
+	}
+
+	let additionalContent = '';
+	let citation = '';
+	const ariaLevel = liElement.getAttribute('aria-level');
+	if (ariaLevel !== '2') {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(liElement.innerHTML, 'text/html');
+		doc.querySelectorAll('ol, ul').forEach(el => el.remove());
+
+		if (headingSize === '14pt') {
+			//console.log("Before removing <a> tags:", doc.body.innerHTML);
+			doc.querySelectorAll('a').forEach(a => {
+				const parent = a.parentNode;
+				//console.log("Removing <a>:", a.outerHTML);
+				while (a.firstChild) parent.insertBefore(a.firstChild, a);
+				parent.removeChild(a);
+			});
+			//console.log("After removing <a> tags:", doc.body.innerHTML); 
+		}
+		citation = doc.body.innerHTML.trim();
+	}
+	console.log("Citation content before processing:", citation); // Add this log
+	let headingPrefix = '';
+	if (/multimedia/i.test(h3Element.textContent)) {
+		const bracketMatch = citation.match(/\[([^\]]+)\]/);
+		if (bracketMatch) {
+			headingPrefix = bracketMatch[1] + ':';
+		}
+	}
+	if (headingPrefix && readingTitle) {
+		console.log(`Multimedia Title Found: ${readingTitle}`);
+	}
+	let chapterText = '';
+	const chapterRegex = /<strong>(.*?)(?:\s*[:\-–—]\s*)?<\/strong>(?:\s*[:\-–—]\s*)?/i;
+	const chapterMatch = citation.match(chapterRegex);
+	if (chapterMatch) {
+		chapterText = chapterMatch[1].trim();
+		// Check if the original match had any separator punctuation
+		if (chapterMatch[0].match(/[:\-–—]/)) {
+			chapterText += ' - ';
+		}
+	}
+
+	let timestamp = '';
+	const timestampMatch = citation.match(/\((\d{1,2}\s?:\s?\d{2}(?:\s?:\s?\d{2})?)\)/);
+	if (timestampMatch) {
+		timestamp = timestampMatch[1].replace(/\s/g, '');
+	}
+
+	if (/multimedia/i.test(h3Element.textContent)) {
+		if (/Video/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
+		} else if (/Audio/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
+		} else if (/Podcast/i.test(headingPrefix)) {
+			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
+		} else if (/Interactive multimedia/i.test(headingPrefix)) {
+	  		additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
+		} else if (/Multimedia case/i.test(headingPrefix)) {
+	  		additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Case Transcript">Transcript</a>)`;
+		}
+	}
+
+	citation = citation.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '').trim();
+	citation = citation.replace(chapterRegex, '').trim();
+
+	const focusQuestions = [];
+	const focusQuestionElements = liElement.querySelectorAll('li[aria-level="2"]');
+	focusQuestionElements.forEach(element => {
+		focusQuestions.push(element.innerHTML.trim());
+		element.classList.add('marked-for-removal'); // Marking for potential removal
+	});
+
+	let iframeTemplate = '';
+	if (/multimedia/i.test(h3Element.textContent)) {
+		let videoID = '';
+		const linkMatch = citation.match(/(?:watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+		if (linkMatch) {
+			videoID = linkMatch[1];
+			console.log("Detected YouTube ID: ", videoID); // Add this log to see if it's working
+			iframeTemplate = `<p><iframe title="${readingTitle} Video" src="https://www.youtube.com/embed/${videoID}?rel=0" width="560" height="315" allowfullscreen="allowfullscreen" webkitallowfullscreen="webkitallowfullscreen" mozallowfullscreen="mozallowfullscreen"></iframe></p>`;
+		}
+	}
+
+	return {
+		headingSize,
+		headingPrefix,
+		headingTag,
+		chapterText,
+		readingTitle,
+		categoryTitle,
+		associatedParagraph,
+		additionalContent,
+		citation,
+		focusQuestions,
+		iframeTemplate
+	};
+
+}
+
+function findNextH4OrList(startElement) {
+	let currentElement = startElement;
+
+	while (currentElement) {
+		// Skip irrelevant <p> tags or other tags that we don't need
+		if (currentElement.tagName === 'P' && currentElement.textContent.trim() === '') {
+			currentElement = currentElement.nextElementSibling; // Skip empty <p> tags
+			continue;
+		}
+		// Add logging to see which element is currently being processed
+		console.log("Current element being processed:", currentElement.tagName, currentElement.outerHTML);
+
+		// Look for <h4>, <ul>, or <ol> tags
+		if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+			return currentElement; // Found the next relevant element
+		}
+
+		// Move to the next sibling
+		currentElement = currentElement.nextElementSibling;
+	}
+	return null; // No more relevant elements found
+}
+
+function integrateTemplateContentInPlace(html, config) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	console.log("Initial DOM state:", doc.body.innerHTML); // Log the initial HTML state
+
+	let currentElement = doc.querySelector('h3'); // Start with the first <h3>
+
+	// Iterate through each <h3> section
+	while (currentElement) {
+		if (config.patterns.readingsMultimediaH3.test(currentElement.textContent)) {
+			console.log("Processing <h3> section (readings/multimedia):", currentElement.outerHTML);
+			const templates = [];
+
+			// Gather all elements between this <h3> and the next <h3>
+			let sectionElements = gatherH4AndListsInSection(currentElement);
+
+			// Process each element and generate templates
+			sectionElements.forEach(element => {
+				if (element.tagName === 'H4') {
+					console.log("Processing <h4>:", element.outerHTML); // Log the content of the <h4> before processing it
+					processH4AndItsList(element, templates, currentElement);
+				} else if (element.tagName === 'UL' || element.tagName === 'OL') {
+					console.log("Processing list:", element.outerHTML); // Log before processing a list
+					processList(element, templates, currentElement);
+				}
+			});
+
+			// Insert processed templates for this section
+			templates.reverse().forEach(template => {
+				console.log("Inserting template after <h3>:", currentElement.outerHTML);
+				console.log("Template to insert:", template); // Log the template to be inserted
+				currentElement.insertAdjacentHTML('afterend', template);
+			});
+		} else if (config.patterns.resourcesH3.test(currentElement.textContent)) {
+			console.log("Processing <h3> section (resources):", currentElement.outerHTML);
+
+			// Gather elements for this section
+			let sectionElements = gatherH4AndListsInSection(currentElement);
+
+			// **Ensure removal of gathered elements after processing**
+			// Simply output the section as-is without applying templates
+			const rawSectionContent = sectionElements.map(element => {
+				// Mark element for removal after appending
+				let content = element.outerHTML;
+				element.remove(); // Remove after processing to avoid duplication
+				return content;
+			}).join('');
+
+			currentElement.insertAdjacentHTML('afterend', rawSectionContent);
+
+		}
+
+		// Move to the next <h3>
+		currentElement = currentElement.nextElementSibling;
+		while (currentElement && currentElement.tagName !== 'H3') {
+			currentElement = currentElement.nextElementSibling;
+		}
+	}
+
+	return doc.body.innerHTML;
+}
+
+// Function to gather all <h4> and <ul>/<ol> elements within a section (between two <h3> tags)
+function gatherH4AndListsInSection(h3Element) {
+	let currentElement = h3Element.nextElementSibling;
+	let elementsToProcess = [];
+
+	// Continue until we hit the next <h3> or the end of the section
+	while (currentElement && currentElement.tagName !== 'H3') {
+		if (currentElement.tagName === 'H4' || currentElement.tagName === 'UL' || currentElement.tagName === 'OL') {
+			elementsToProcess.push(currentElement);
+		}
+		currentElement = currentElement.nextElementSibling;
+	}
+
+	return elementsToProcess;
+}
+
+function processH4AndItsList(h4Element, templates, h3orh4) {
+	console.log("Processing <h4> tag and its subsequent lists:", h4Element.textContent);
+
+	let nextElement = h4Element.nextElementSibling; // Start with the element after the current <h4>
+
+	// Add the category title (once per <h4> section)
+	const variables = {
+		categoryTitle: h4Element.textContent.trim(),
+		headingSize: '12pt', // Adjust this as necessary
+		headingPrefix: '',
+		chapterText: '',
+		readingTitle: '',
+		associatedParagraph: '',
+		additionalContent: '',
+		citation: '',
+		focusQuestions: [],
+		iframeTemplate: ''
+	};
+	// Insert the category title template first
+	templates.push(generateCategoryTitleTemplate(variables));
+
+	// Now process the subsequent lists or items
+	while (nextElement && nextElement.tagName !== 'H3') {
+		console.log("Checking next sibling element:", nextElement.tagName, nextElement.outerHTML);
+
+		if (nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
+			console.log("Found a list following the <h4>:", nextElement.outerHTML);
+
+			// Process the current list
+			processList(nextElement, templates, h3orh4);
+
+			// Move to the next element after processing the list
+			nextElement = nextElement.nextElementSibling;
+		} else if (nextElement.tagName === 'H4') {
+			console.log("Found another <h4> tag:", nextElement.outerHTML);
+
+			// Process this new <h4> and its associated list
+			processH4AndItsList(nextElement, templates, h3orh4);
+			return; // After processing, return to avoid skipping elements
+		} else {
+			// If it's neither a <ul>, <ol>, nor <h4>, move to the next sibling
+			nextElement = nextElement.nextElementSibling;
+		}
+	}
+
+	// Once all relevant lists and <h4> tags are processed, remove the original <h4>
+	h4Element.remove();
+}
+
+function processList(listElement, templates, h3orh4, isFirstInCategory) {
+	console.log("Processing list:", listElement.outerHTML);
+	const listItems = Array.from(listElement.querySelectorAll('li[aria-level="1"]'));
+
+	listItems.forEach(li => {
+		console.log("Extracting variables from LI:", li.outerHTML);
+		const variables = extractVariablesFromHTML(li, h3orh4);
+
+		// Pass the `isFirstInCategory` flag only for the first reading in the category
+		variables.isFirstInCategory = isFirstInCategory;
+
+		const generatedTemplate = generateTemplate(variables); //NEW
+		console.log("Generated template:", generatedTemplate); // Add this log
+
+		templates.push(generateTemplate(variables));
+		li.remove();
+	});
+
+	listElement.remove(); // Remove the list after processing
+}
+
+function generateCategoryTitleTemplate(variables) {
+	const {
+		categoryTitle
+	} = variables;
+
+	return `<h3 style="font-size: 12pt;"><strong>${categoryTitle}</strong></h3>`;
+}
+
+function generateTemplate(variables) {
+	const {
+		headingSize,
+		headingPrefix,
+		headingTag, // defined by whether or not the list was preceded by h3 or h4
+		chapterText,
+		readingTitle,
+		associatedParagraph,
+		additionalContent,
+		citation,
+		focusQuestions,
+		iframeTemplate
+	} = variables;
+	console.log("iframeTemplate content before returning the template:", iframeTemplate); // Add this log
+	return `
+		   <${headingTag} style="font-size: ${headingSize};">
+			  <strong>${headingPrefix}${chapterText} ${readingTitle}${associatedParagraph ? '*' : ''}</strong>
+			  ${additionalContent}
+		   </${headingTag}>
+		   <p>${citation}</p>
+		   ${associatedParagraph ? `<p>${associatedParagraph}</p>` : ''}
+		   ${focusQuestions.length > 0 ? `
+		   <p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		   <ul style="padding-left: 15px; padding-right: 20px;">
+			  ${focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
+		   </ul>` : ''}
+		   ${iframeTemplate}
+		   <p>&nbsp;</p>`;
+}
+
+function applyTransformations(html, transformations, config) {
+	let transformedHtml = html;
+
+	// Run this FIRST
+	transformedHtml = transformations.removeInternalAssignmentAssetsSections(transformedHtml, config);
+
+	// Apply the rest
+	Object.keys(transformations).forEach(transformation => {
+		if (transformation === 'removeInternalAssignmentAssetsSections') return;
+		transformedHtml = transformations[transformation](transformedHtml, config);
+	});
+
+	return transformedHtml;
+}
+
+function ensureListsAreIntact(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const h3Elements = doc.querySelectorAll('h3');
+
+	h3Elements.forEach(h3 => {
+		const nextElement = h3.nextElementSibling;
+		if (!nextElement || (nextElement.tagName !== 'UL' && nextElement.tagName !== 'OL')) {
+			console.error(`Error: ${h3.textContent} does not begin with a list.`);
+		}
+	});
+
+	return html;
+}
+
+function buildAndDisplayAccordionFromPages(pageMap) {
+	const sections = Object.entries(pageMap).map(([title, content]) => ({
+		title,
+		content: content || '',
+		subSections: []
+	}));
+
+	const accordion = buildAccordion(sections);
+	const outputBox = document.getElementById('accordionOutputBox');
+	outputBox.innerHTML = '';
+	outputBox.appendChild(accordion);
+	setupAccordion();
+}	
+//Using this	
+function proceedWithFormatting() {
+	const inputContent = document.getElementById('input').innerHTML;
+	document.getElementById('initialHtmlOutput').value = inputContent;
+
+	let transformedContent = applyTransformations(inputContent, transformations, config);
+	console.log('HTML after applying transformations:', transformedContent);
+
+	transformedContent = ensureListsAreIntact(transformedContent);
+	console.log('HTML after ensuring lists are intact:', transformedContent);
+	
+	const staticTabs = extractStaticCourseTabs(transformedContent);
+	console.log('staticTabs:', staticTabs);
+
+	const overviewData = extractOverviewOutcomes(transformedContent);
+	console.log('overviewData:', overviewData);
+
+	const readingsData = extractReadings(transformedContent);
+	console.log('readingsData:', readingsData);
+
+	const multimediaData = extractMultimedia(transformedContent);
+	console.log('multimediaData:', multimediaData);
+
+	const discussionData = extractDiscussion(transformedContent);
+	console.log('discussionData:', discussionData);
+
+	const assignmentData = extractAssignment(transformedContent);
+	console.log('assignmentData:', assignmentData);
+	
+	const finalAssessmentData = extractFinalAssessment(transformedContent);
+	console.log('finalAssessmentData:', finalAssessmentData);
+
+	const activityData = extractActivity(transformedContent);
+	console.log('activityData:', activityData);
+
+	const weekMap = new Map();
+
+	function getWeekSection(weekNumber) {
+		if (!weekMap.has(weekNumber)) {
+			weekMap.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				content: '',
+				subSections: []
+			});
+		}
+		return weekMap.get(weekNumber);
+	}
+
+	function seedWeekTitle(weekSection, candidateTitle) {
+		if (candidateTitle && !weekSection.moduleTitle) {
+			weekSection.moduleTitle = candidateTitle;
+		}
+	}
+
+	(overviewData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		const weekHtml = renderWeekOverviewOutcomesPage(week, config);
+		weekSection.subSections.push({
+			title: 'Overview / Learning Outcomes',
+			content: weekHtml
+		});
+	});
+
+	(readingsData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		const weekHtml = renderWeekReadingsPage(week, config, {
+			focusQuestionIconURL: config.icons.focusQuestions || '',
+			baseUrl: readingsData.baseUrl || ''
+		});
+
+		weekSection.subSections.push({
+			title: 'Readings',
+			content: weekHtml
+		});
+	});
+
+	(multimediaData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		const weekHtml = renderWeekMultimediaPage(week, config, {
+			focusQuestionIconURL: config.icons.focusQuestions || ''
+		});
+
+		weekSection.subSections.push({
+			title: 'Multimedia',
+			content: weekHtml
+		});
+	});
+
+	(discussionData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+			seedWeekTitle(weekSection, week.moduleTitle);
+
+		(week.discussions || []).forEach(discussion => {
+			const weekHtml = renderWeekDiscussionPage(
+				{
+					weekNumber: week.weekNumber,
+					contentHtml: discussion.contentHtml
+				},
+				config
+			);
+
+			weekSection.subSections.push({
+				title: discussion.title || 'Discussion',
+				content: weekHtml
+			});
+		});
+	});
+
+	(assignmentData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		const total = (week.assignments || []).length;
+
+		(week.assignments || []).forEach((assignment, index) => {
+			const weekHtml = renderWeekAssignmentPage(assignment, config);
+
+			weekSection.subSections.push({
+				title: total > 1 ? `Assignment ${index + 1}` : 'Assignment',
+				content: weekHtml
+			});
+		});
+	});
+	
+	(finalAssessmentData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		(week.finalAssessments || []).forEach((finalAssessment, index) => {
+			const weekHtml = renderWeekFinalAssessmentPage(finalAssessment, config);
+
+			weekSection.subSections.push({
+				title: finalAssessment.title || 'Final Assessment',
+				content: weekHtml
+			});
+		});
+	});
+
+	(activityData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		const total = (week.activities || []).length;
+
+		(week.activities || []).forEach((activity, index) => {
+			const weekHtml = renderWeekActivityPage(activity, config);
+
+			weekSection.subSections.push({
+				title: total > 1 ? `Activity ${index + 1}` : 'Activity',
+				content: weekHtml
+			});
+		});
+	});
+
+	const sections = [
+		...staticTabs,
+		...Array.from(weekMap.values())
+			.sort((a, b) => a.weekNumber - b.weekNumber)
+			.map(section => ({
+				...section,
+				title: section.moduleTitle || `Week ${section.weekNumber}`,
+				content: removeAllAriaLevels(section.content || ''),
+				subSections: (section.subSections || []).map(subSection => ({
+					...subSection,
+					content: removeAllAriaLevels(subSection.content || '')
+				}))
+			}))
+	];
+
+	console.log('sections:', sections);
+
+	const firstSectionHtml =
+		sections.find(section => (section.content || '').trim())?.content || '';
+
+	document.getElementById('testOutput').value = firstSectionHtml;
+	document.getElementById('renderedTestOutput').innerHTML = firstSectionHtml;
+
+	const accordion = buildAccordion(sections);
+	const outputBox = document.getElementById('accordionOutputBox');
+	outputBox.innerHTML = '';
+	outputBox.appendChild(accordion);
+	setupAccordion();
+}
+
+function renderWeekReadingsPage(week, config, options = {}) {
+	const focusQuestionIconURL = options.focusQuestionIconURL || '';
+	const baseUrl = options.baseUrl || '';
+
+	const requiredHtml = week.required
+		.map(item => renderReadingsItem(item, { focusQuestionIconURL }))
+		.join('\n');
+
+	const optionalHtml = week.optional.length
+		? week.optional.map(item => renderReadingsItem(item, { focusQuestionIconURL })).join('\n')
+		: '';
+
+	const exampleProjectsHtml = (week.exampleProjects || []).length
+		? week.exampleProjects.map(item => renderReadingsItem(item, { focusQuestionIconURL })).join('\n')
+		: '';
+
+	let html = config.boilerplates.weeklyReadings.content({
+		weekNumber: week.weekNumber,
+		hasOptional: week.optional.length > 0,
+		hasExampleProjects: (week.exampleProjects || []).length > 0,
+		baseUrl
+	});
+
+	html = html.replace('<!-- REQUIRED_READINGS -->', requiredHtml);
+	html = html.replace('<!-- OPTIONAL_READINGS -->', optionalHtml);
+	html = html.replace('<!-- EXAMPLE_PROJECTS -->', exampleProjectsHtml);
+
+	return html;
+}	
+
+function renderWeekMultimediaPage(week, config, options = {}) {
+	const focusQuestionIconURL = options.focusQuestionIconURL || '';
+
+	const requiredHtml = week.required
+		.map(item => renderMultimediaItem(item, { focusQuestionIconURL }))
+		.join('\n');
+
+	const optionalHtml = week.optional.length
+		? week.optional.map(item => renderMultimediaItem(item, { focusQuestionIconURL })).join('\n')
+		: '';
+
+	let html = config.boilerplates.weeklyMultimedia.content({
+		hasOptionalMM: week.optional.length > 0
+	});
+
+	html = html.replace('<!-- REQUIRED_MULTIMEDIA -->', requiredHtml);
+	html = html.replace('<!-- OPTIONAL_MULTIMEDIA -->', optionalHtml);
+
+	return html;
+}	
+	
+function renderWeekDiscussionPage(discussion, config) {
+	let html = config.boilerplates.weeklyDiscussion.content({
+		weekNumber: discussion.weekNumber
+	});
+
+	html = html.replace(
+		'<!-- Dynamic Content from "Weekly Discussion" injected here -->',
+		discussion.contentHtml || ''
+	);
+
+	return html;
+}
+	
+function renderWeekAssignmentPage(assignment, config) {
+	let html = config.boilerplates.weeklyAssignment.content();
+	html = html.replace('[Title]', assignment.title || 'Assignment');
+	html = html.replace('<!-- Dynamic Content from "Weekly Assignment" injected here -->', assignment.contentHtml || '');
+	return html;
+}
+	
+function renderWeekFinalAssessmentPage(finalAssessment, config) {
+	let html = config.boilerplates.weeklyFinalAssessment.content();
+	html = html.replace('[Title]', finalAssessment.title || 'Final Assessment');
+	html = html.replace('<!-- Dynamic Content from "Weekly Final Assessment" injected here -->', finalAssessment.contentHtml || '');
+	return html;
+}
+	
+function renderWeekActivityPage(activity, config) {
+	let html = config.boilerplates.weeklyActivity.content();
+	html = html.replace('[Title]', activity.title || 'Activity');
+	html = html.replace('<!-- Dynamic Content from "Weekly Activity" injected here -->', activity.contentHtml || '');
+	return html;
+}
+	
+function renderWeekOverviewOutcomesPage(week, config) {
+	let html = config.boilerplates.weeklyOverviewOutcomes.content();
+	html = html.replace('<!-- Dynamic Content from "Weekly Overview" injected here -->', week.overviewHtml || '');
+	html = html.replace('<!-- Dynamic Content from "Weekly Outcomes" injected here -->', week.outcomesHtml || '');
+	return html;
+}
+	
+function segmentContentByH2(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const sections = [];
+	let currentSection = null;
+
+	Array.from(doc.body.children).forEach(child => {
+		if (child.tagName === 'H2') {
+			if (currentSection) {
+				sections.push(currentSection);
+			}
+			currentSection = {
+				title: child.textContent,
+				content: '',
+				subSections: []
+			};
+		} else if (currentSection) {
+			if (child.tagName === 'H3' && /^\s*Week \d+/i.test(child.textContent.trim())) {
+				currentSection.subSections.push({
+					title: child.textContent.trim(),
+					content: ''
+				});
+			} else if (currentSection.subSections.length > 0) {
+				currentSection.subSections[currentSection.subSections.length - 1].content += child.outerHTML;
+			} else {
+				currentSection.content += child.outerHTML;
+			}
+		}
+	});
+
+	if (currentSection) {
+		sections.push(currentSection);
+	}
+
+	return sections;
+}
+
+function removeMarkedElements(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const elementsToRemove = doc.querySelectorAll('.marked-for-removal');
+	elementsToRemove.forEach(element => element.remove());
+	return doc.body.innerHTML; // Return the modified HTML
+}
+
+function removeAllAriaLevels(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const liElements = doc.querySelectorAll('li');
+
+	liElements.forEach(li => {
+		li.removeAttribute('aria-level');
+	});
+	console.log("HTML before removing marked elements:", html); // Log before removing marked elements
+	return doc.body.innerHTML; // Return the modified HTML
+}
+
+function addEventListeners() {
+	document.getElementById('formatButton').addEventListener('click', function () {
+		openModal();
+	});
+}
+
+document.addEventListener('DOMContentLoaded', addEventListeners);
+
+// Modal functionality
+	var modal = document.getElementById("myModal");
+	var span = document.querySelector("#myModal .close");
+	var submitBtn = document.getElementById("submitUrl");
+	var focusQuestionIconURL = "";
+
+	function openModal() {
+	  document.getElementById("overviewIconInput").value            = config.icons.weeklyOverview || "";
+	  document.getElementById("outcomesIconInput").value            = config.icons.weeklyOutcomes || "";
+	  document.getElementById("readingsIconInput").value            = config.icons.weeklyReadings || "";
+	  document.getElementById("multimediaIconInput").value          = config.icons.weeklyMultimedia || "";
+	  document.getElementById("focusIconInput").value               = config.icons.focusQuestions || "";
+	  document.getElementById("discussionIconInput").value          = config.icons.weeklyDiscussion || "";
+	  document.getElementById("assignmentIconInput").value          = config.icons.weeklyAssignmentActivity || "";
+
+	  document.querySelectorAll('input[name="courseType"]').forEach(radio => {
+	    radio.checked = radio.value === config.courseType;
+	  });
+
+	  document.getElementById("courseTypeError").style.display = "none";
+	  modal.style.display = "block";
+	}
+
+	submitBtn.onclick = function () {
+	  const selectedCourseType = document.querySelector('input[name="courseType"]:checked');
+	  const courseTypeError = document.getElementById("courseTypeError");
+
+	  if (!selectedCourseType) {
+	    courseTypeError.style.display = "block";
+	    return;
+	  }
+
+	  courseTypeError.style.display = "none";
+
+	  config.icons.weeklyOverview           = document.getElementById("overviewIconInput").value.trim();
+	  config.icons.weeklyOutcomes           = document.getElementById("outcomesIconInput").value.trim();
+	  config.icons.weeklyReadings           = document.getElementById("readingsIconInput").value.trim();
+	  config.icons.weeklyMultimedia         = document.getElementById("multimediaIconInput").value.trim();
+	  config.icons.focusQuestions           = document.getElementById("focusIconInput").value.trim();
+	  config.icons.weeklyDiscussion         = document.getElementById("discussionIconInput").value.trim();
+	  config.icons.weeklyAssignmentActivity = document.getElementById("assignmentIconInput").value.trim();
+
+	  config.courseType = selectedCourseType.value;
+
+	  focusQuestionIconURL = config.icons.focusQuestions || "";
+
+	  modal.style.display = "none";
+	  proceedWithFormatting();
+	};
+
+
+function setupAccordion() {
+	var acc = document.getElementsByClassName("accordion");
+	var subAcc = document.getElementsByClassName("sub-accordion");
+	var activeAccordion = null; // Track the active main accordion
+	var activeSubAccordion = null; // Track the active sub-accordion
+
+	// Event listener for main accordions
+	for (var i = 0; i < acc.length; i++) {
+		acc[i].addEventListener("click", function (e) {
+			if (!this.classList.contains('sub-accordion')) {
+				// Close the currently active main accordion if it's not the one being clicked
+				if (activeAccordion && activeAccordion !== this) {
+					activeAccordion.classList.remove("active");
+					activeAccordion.nextElementSibling.style.display = "none";
+				}
+				// Toggle the clicked main accordion
+				this.classList.toggle("active");
+				var panel = this.nextElementSibling;
+				if (panel.style.display === "block") {
+					panel.style.display = "none";
+				} else {
+					panel.style.display = "block";
+				}
+				// Update the activeAccordion to the current one if it's expanded, or null if it's collapsed
+				activeAccordion = this.classList.contains("active") ? this : null;
+
+				// Close any open sub-accordion within the active main accordion
+				if (activeSubAccordion && activeSubAccordion.parentElement.parentElement !== panel) {
+					activeSubAccordion.classList.remove("active");
+					activeSubAccordion.nextElementSibling.style.display = "none";
+					activeSubAccordion = null;
+				}
+			}
+		});
+	}
+
+	// Event listener for sub accordions
+	for (var j = 0; j < subAcc.length; j++) {
+		subAcc[j].addEventListener("click", function (e) {
+			e.stopPropagation(); // Stop the event from bubbling up to parent elements
+			// Close the previously active sub-accordion if it's not the one being clicked
+			if (activeSubAccordion && activeSubAccordion !== this) {
+				activeSubAccordion.classList.remove("active");
+				activeSubAccordion.nextElementSibling.style.display = "none";
+			}
+			// Toggle the clicked sub-accordion
+			this.classList.toggle("active");
+			var subPanel = this.nextElementSibling;
+			if (subPanel.style.display === "block") {
+				subPanel.style.display = "none";
+			} else {
+				subPanel.style.display = "block";
+			}
+			// Update the activeSubAccordion to the current one if it's expanded, or null if it's collapsed
+			activeSubAccordion = this.classList.contains("active") ? this : null;
+		});
+	}
+}
+
+document.addEventListener('DOMContentLoaded', setupAccordion);
+
+
+// Function to add copy functionality
+function addCopyFunctionality(button, textArea) {
+	button.addEventListener('click', async function () {
+		try {
+			// Use modern Clipboard API
+			await navigator.clipboard.writeText(textArea.value);
+			
+			// Provide visual feedback by temporarily changing button text
+			const originalText = button.textContent;
+			button.textContent = 'Copied!';
+			button.style.backgroundColor = '#4CAF50';
+			
+			// Reset button after 2 seconds
+			setTimeout(() => {
+				button.textContent = originalText;
+				button.style.backgroundColor = '';
+			}, 2000);
+			
+		} catch (err) {
+			// Fallback for older browsers or if clipboard API fails
+			try {
+				textArea.select();
+				document.execCommand('copy');
+				
+				// Same visual feedback as above
+				const originalText = button.textContent;
+				button.textContent = 'Copied!';
+				button.style.backgroundColor = '#4CAF50';
+				
+				setTimeout(() => {
+					button.textContent = originalText;
+					button.style.backgroundColor = '';
+				}, 2000);
+				
+			} catch (fallbackErr) {
+				// If both methods fail, show a simple message
+				const originalText = button.textContent;
+				button.textContent = 'Copy failed';
+				button.style.backgroundColor = '#f44336';
+				
+				setTimeout(() => {
+					button.textContent = originalText;
+					button.style.backgroundColor = '';
+				}, 2000);
+			}
+		}
+	});
+}
+
+// Function to build the accordion
+function buildAccordion(sections) {
+	const accordionContainer = document.createElement('div');
+
+	sections.forEach(section => {
+		const accordionButton = document.createElement('div');
+		accordionButton.classList.add('accordion');
+		accordionButton.textContent = section.title;
+
+		const panel = document.createElement('div');
+		panel.classList.add('panel');
+
+		// Create the container for code and preview, side-by-side
+		const codePreviewContainer = document.createElement('div');
+		codePreviewContainer.classList.add('code-preview-container');
+
+		// Only create and append the text area and rendered output if there is content
+		if (section.content.trim()) {
+			// Create the text area for the code view
+			const codeTextArea = document.createElement('textarea');
+			codeTextArea.value = section.content;
+			codeTextArea.rows = 5;
+
+			// Create the copy button
+			const copyButton = document.createElement('button');
+			copyButton.textContent = 'Copy Code';
+			copyButton.classList.add('copy-btn');
+
+			// Add copy functionality to the button
+			addCopyFunctionality(copyButton, codeTextArea);
+
+			// Create the div for the rendered output
+			const renderedOutput = document.createElement('div');
+			renderedOutput.classList.add('rendered-output');
+			renderedOutput.innerHTML = section.content;
+
+			// Append the code view and rendered output to the container
+			const codeContainer = document.createElement('div');
+			codeContainer.classList.add('code-container');
+			codeContainer.appendChild(codeTextArea);
+			codeContainer.appendChild(copyButton);
+
+			codePreviewContainer.appendChild(codeContainer);
+			codePreviewContainer.appendChild(renderedOutput);
+
+			// Append the container to the panel
+			panel.appendChild(codePreviewContainer);
+		}
+
+		// Append sub-accordions if there are any
+		if (section.subSections.length > 0) {
+			section.subSections.forEach(subSection => {
+				const subAccordionButton = document.createElement('div');
+				subAccordionButton.classList.add('sub-accordion');
+				subAccordionButton.textContent = subSection.title;
+
+				const subPanel = document.createElement('div');
+				subPanel.classList.add('panel');
+
+				// Create the container for code and preview, side-by-side
+				const subCodePreviewContainer = document.createElement('div');
+				subCodePreviewContainer.classList.add('code-preview-container');
+
+				// Only create and append the text area and rendered output if there is content
+				if (subSection.content.trim()) {
+					// Create the text area for the code view
+					const subCodeTextArea = document.createElement('textarea');
+					subCodeTextArea.value = subSection.content;
+					subCodeTextArea.rows = 5;
+
+					// Create the copy button
+					const subCopyButton = document.createElement('button');
+					subCopyButton.textContent = 'Copy Code';
+					subCopyButton.classList.add('copy-btn');
+
+					// Add copy functionality to the button
+					addCopyFunctionality(subCopyButton, subCodeTextArea);
+
+					// Create the div for the rendered output
+					const subRenderedOutput = document.createElement('div');
+					subRenderedOutput.classList.add('rendered-output');
+					subRenderedOutput.innerHTML = subSection.content;
+
+					// Append the code view and rendered output to the container
+					const subCodeContainer = document.createElement('div');
+					subCodeContainer.classList.add('code-container');
+					subCodeContainer.appendChild(subCodeTextArea);
+					subCodeContainer.appendChild(subCopyButton);
+
+					subCodePreviewContainer.appendChild(subCodeContainer);
+					subCodePreviewContainer.appendChild(subRenderedOutput);
+
+					// Append the container to the sub-panel
+					subPanel.appendChild(subCodePreviewContainer);
+				}
+
+				// Append the sub-accordion button and sub-panel to the main panel
+				panel.appendChild(subAccordionButton);
+				panel.appendChild(subPanel);
+			});
+		}
+
+		// Append the button and panel to the container
+		accordionContainer.appendChild(accordionButton);
+		accordionContainer.appendChild(panel);
+	});
+
+	return accordionContainer;
+}
+
+function buildAndDisplayAccordion(finalHtml) {
+	const sections = segmentContentByH2(finalHtml);
+	const accordion = buildAccordion(sections);
+	const outputBox = document.getElementById('accordionOutputBox');
+	outputBox.innerHTML = ''; // Clear any existing content
+	outputBox.appendChild(accordion);
+	setupAccordion();
+}
+
+
+document.addEventListener('DOMContentLoaded', function () {
+	setupAccordion();
+});
+// JavaScript Document
+
+</script>
+</body>
+</html>
