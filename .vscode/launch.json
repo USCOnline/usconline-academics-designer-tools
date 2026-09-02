@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CanvasLocalHelper + index.html",
+      "type": "coreclr",
+      "request": "launch",
+      "program": "${workspaceFolder}/CanvasLocalHelper/bin/Debug/net10.0/CanvasLocalHelper.dll",
+      "cwd": "${workspaceFolder}/CanvasLocalHelper",
+      "console": "externalTerminal",
+      "stopAtEntry": false,
+      "preLaunchTask": "open Whole Page tool"
+    }
+  ]
+}

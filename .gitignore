@@ -1,0 +1,17 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Visual Studio and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# macOS and Windows metadata
+.DS_Store
+Thumbs.db

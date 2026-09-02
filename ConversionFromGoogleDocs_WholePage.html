@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="origin">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://usc-online.instructure.com https://usc-online.test.instructure.com https://usc-online.beta.instructure.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src https://usc-online.instructure.com https://usc-online.test.instructure.com https://usc-online.beta.instructure.com; form-action 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://usc-online.instructure.com https://usc-online.test.instructure.com https://usc-online.beta.instructure.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src http://localhost:* http://127.0.0.1:*; form-action 'none'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
 <title>Whole Page CPG to Canvas Converter</title>
 <style>
 body {
@@ -30,6 +30,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, [contenteditabl
 .canvas-action:hover { background: #700000; }
 .canvas-action.secondary { background: #fff; color: #990000; }
 .canvas-action:disabled { opacity: .55; cursor: not-allowed; }
+.canvas-match-pill { display: inline-block; margin: 5px 5px 0 0; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: .875rem; font-weight: 600; }
+.canvas-match-pill.matched { color: #155724; background: #d4edda; }
+.canvas-match-pill.unmatched { color: #721c24; background: #f8d7da; }
 .classification { margin: 20px 15px; padding-top: 8px; border-top: 1px solid #ccc; font-size: .875rem; }
 textarea {
 	display: block;
@@ -177,23 +180,18 @@ h1, h2 {
 	<section class="canvas-toolbar" aria-labelledby="canvasHeading">
 		<h2 id="canvasHeading">Canvas connection</h2>
 		<div class="canvas-controls">
-			<label class="canvas-field" for="canvasInstance">Canvas instance
-				<select id="canvasInstance">
-					<option value="https://usc-online.instructure.com">Production</option>
-					<option value="https://usc-online.test.instructure.com">Test</option>
-					<option value="https://usc-online.beta.instructure.com">Beta</option>
-				</select>
+			<label class="canvas-field" for="canvasHelperUrl">Local Canvas helper URL
+				<input id="canvasHelperUrl" type="url" placeholder="http://127.0.0.1:49152" autocomplete="off" spellcheck="false">
 			</label>
-			<label class="canvas-field" for="canvasToken">Canvas access token
-				<input id="canvasToken" type="password" autocomplete="off" spellcheck="false">
-			</label>
-			<button id="canvasLoginButton" class="canvas-action" type="button">Login to Canvas</button>
+			<button id="canvasLoginButton" class="canvas-action" type="button">Connect to Helper</button>
 			<button id="canvasLogoutButton" class="canvas-action secondary" type="button" hidden>Logout / Clear</button>
 			<button id="selectCourseButton" class="canvas-action" type="button" disabled>Select Course</button>
+			<button id="listPagesButton" class="canvas-action" type="button" disabled>List &amp; Match Course Pages</button>
 		</div>
-		<p class="canvas-help">Create a token in Canvas under Account &gt; Settings &gt; Approved Integrations &gt; New Access Token. Set the expiration date as early as practical, and never share the token. The token is used only in this browser session and is not saved.</p>
+		<p class="canvas-help">Start the local Canvas helper first. It prompts for the Canvas environment and access token, keeps both in memory, and prints its URL. Paste that URL here. The helper clears the token when it exits.</p>
 		<p id="canvasStatus" class="canvas-status" role="status" aria-live="polite">Not connected to Canvas.</p>
 		<div id="courseDetails" class="course-details" hidden></div>
+		<div id="coursePages" class="course-details" hidden></div>
 	</section>
 	<div id="instructions">
 		<p><strong>Instructions:</strong></p>
@@ -2480,11 +2478,11 @@ function removeAllAriaLevels(html) {
 }
 
 // Canvas credentials and course/page data intentionally live only in this page's memory.
-const canvasState = { baseUrl: '', token: '', authenticated: false, course: null, pageMap: new Map(), updating: new Set(), updatedPages: new Map() };
+const canvasState = { helperUrl: '', canvasBaseUrl: '', environment: '', authenticated: false, course: null, pagesListed: false, pageMap: new Map(), updating: new Set(), updatedPages: new Map() };
 const canvasElements = () => ({
-	instance: document.getElementById('canvasInstance'), token: document.getElementById('canvasToken'),
+	helperUrl: document.getElementById('canvasHelperUrl'),
 	login: document.getElementById('canvasLoginButton'), logout: document.getElementById('canvasLogoutButton'),
-	selectCourse: document.getElementById('selectCourseButton'), status: document.getElementById('canvasStatus'), details: document.getElementById('courseDetails')
+	selectCourse: document.getElementById('selectCourseButton'), listPages: document.getElementById('listPagesButton'), status: document.getElementById('canvasStatus'), details: document.getElementById('courseDetails'), pages: document.getElementById('coursePages')
 });
 
 function setCanvasStatus(message, type = '') {
@@ -2493,21 +2491,17 @@ function setCanvasStatus(message, type = '') {
 	status.className = `canvas-status${type ? ` ${type}` : ''}`;
 }
 
-function canvasHeaders() {
-	return canvasState.token ? { Authorization: `Bearer ${canvasState.token}` } : {};
-}
-
 async function canvasRequest(path, options = {}) {
 	let response;
 	try {
-		response = await fetch(`${canvasState.baseUrl}${path}`, {
+		response = await fetch(`${canvasState.helperUrl}${path}`, {
 			credentials: 'omit',
 			referrerPolicy: 'origin',
 			...options,
-			headers: { Accept: 'application/json', ...canvasHeaders(), ...(options.headers || {}) }
+			headers: { Accept: 'application/json', ...(options.headers || {}) }
 		});
 	} catch (error) {
-		const networkError = new Error(`Canvas could not be reached for ${options.method || 'GET'} ${path}.\n\nThis is usually a browser/network problem such as CORS blocking, an unavailable Canvas environment, or a firewall/VPN/extension blocking the request. It is not a normal Canvas token error because Canvas did not return an HTTP response.\n\nSelected Canvas host: ${canvasState.baseUrl}\nNext step: open browser Developer Tools → Console and Network, retry Login to Canvas, and inspect the request for a CORS or connection message.`);
+		const networkError = new Error(`The local Canvas helper could not be reached for ${options.method || 'GET'} ${path}.\n\nStart the helper, copy the exact URL it prints, and paste it into the helper URL field. If it is running, check that the browser allows local connections and that the helper window is still open.`);
 		networkError.cause = error;
 		networkError.isNetworkError = true;
 		throw networkError;
@@ -2524,20 +2518,22 @@ async function canvasRequest(path, options = {}) {
 }
 
 async function authenticateCanvas() {
-	const { instance, token, login, logout, selectCourse } = canvasElements();
-	canvasState.baseUrl = instance.value.replace(/\/$/, '');
-	canvasState.token = token.value.trim();
+	const { helperUrl, login, logout, selectCourse } = canvasElements();
+	canvasState.helperUrl = helperUrl.value.trim().replace(/\/$/, '');
 	login.disabled = true;
-	if (!canvasState.token) { setCanvasStatus('Enter a Canvas access token before logging in.', 'error'); login.disabled = false; return; }
-	setCanvasStatus('Checking Canvas connection…');
+	if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(canvasState.helperUrl)) { setCanvasStatus('Enter the local helper URL printed by the .NET app, such as http://127.0.0.1:49152.', 'error'); login.disabled = false; return; }
+	setCanvasStatus('Checking local Canvas helper…');
 	try {
-		await canvasRequest('/api/v1/users/self');
+		const statusResponse = await canvasRequest('/api/status');
+		const status = await statusResponse.json();
+		if (!status.connected || !status.environment || !status.canvasBaseUrl) throw new Error('The helper did not report an active Canvas connection.');
+		canvasState.canvasBaseUrl = status.canvasBaseUrl;
+		canvasState.environment = status.environment;
 		canvasState.authenticated = true;
 		logout.hidden = false;
 		selectCourse.disabled = false;
-		setCanvasStatus('Connected to Canvas with the supplied access token.', 'success');
+		setCanvasStatus(`Connected to Canvas through the local helper. Environment: ${status.environment} (${status.canvasBaseUrl}).`, 'success');
 	} catch (error) {
-		canvasState.token = '';
 		canvasState.authenticated = false;
 		selectCourse.disabled = true;
 		setCanvasStatus(error.message || 'Canvas authentication failed.', 'error');
@@ -2545,10 +2541,10 @@ async function authenticateCanvas() {
 }
 
 function clearCanvasState() {
-	canvasState.token = ''; canvasState.authenticated = false; canvasState.baseUrl = ''; canvasState.course = null;
+	canvasState.authenticated = false; canvasState.helperUrl = ''; canvasState.canvasBaseUrl = ''; canvasState.environment = ''; canvasState.course = null; canvasState.pagesListed = false;
 	canvasState.pageMap.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
-	const { token, logout, selectCourse, details } = canvasElements();
-	token.value = ''; logout.hidden = true; selectCourse.disabled = true; details.hidden = true; details.textContent = '';
+	const { helperUrl, logout, selectCourse, listPages, details, pages } = canvasElements();
+	helperUrl.value = ''; logout.hidden = true; selectCourse.disabled = true; listPages.disabled = true; details.hidden = true; details.textContent = ''; pages.hidden = true; pages.textContent = '';
 	setCanvasStatus('Canvas connection cleared.');
 }
 
@@ -2557,9 +2553,16 @@ async function selectCanvasCourse() {
 	if (id === null) return;
 	const courseId = id.trim();
 	if (!/^\d+$/.test(courseId)) { setCanvasStatus('Enter a numeric Canvas Course ID.', 'error'); return; }
+	canvasState.course = null; canvasState.pagesListed = false;
+	canvasState.pageMap.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
+	const courseUi = canvasElements();
+	courseUi.details.hidden = true; courseUi.details.textContent = '';
+	courseUi.pages.hidden = true; courseUi.pages.textContent = '';
+	courseUi.listPages.disabled = true;
+	refreshCanvasButtons();
 	setCanvasStatus('Loading course details…');
 	try {
-		const response = await canvasRequest(`/api/v1/courses/${encodeURIComponent(courseId)}?include[]=sis_course_id&include[]=account`);
+		const response = await canvasRequest(`/api/courses/${encodeURIComponent(courseId)}`);
 		const course = await response.json();
 		canvasState.course = { id: course.id, name: course.name || 'Untitled course', sisId: course.sis_course_id || 'Not available', subAccount: course.account?.name || 'Not available' };
 		const { details } = canvasElements();
@@ -2571,51 +2574,119 @@ async function selectCanvasCourse() {
 		});
 		details.appendChild(table); details.hidden = false;
 		setCanvasStatus('Course selected. Canvas update actions are now available.', 'success');
+		canvasElements().listPages.disabled = false;
 		refreshCanvasButtons();
 	} catch (error) { setCanvasStatus(error.message || 'Unable to load that course.', 'error'); }
 }
 
+async function listCanvasPages() {
+	const { pages } = canvasElements();
+	if (!canvasState.course) return;
+	setCanvasStatus('Loading all pages in the selected course…');
+	try {
+		await getAllCanvasPages();
+		canvasState.pagesListed = true;
+		refreshCanvasMatchPills();
+		refreshCanvasButtons();
+		pages.textContent = '';
+		const heading = document.createElement('h3'); heading.textContent = `Pages in ${canvasState.course.name}`; pages.appendChild(heading);
+		const note = document.createElement('p'); note.textContent = 'Canvas returns Pages as a flat list; the Pages API does not provide parent/child hierarchy.'; pages.appendChild(note);
+		const table = document.createElement('table');
+		const caption = document.createElement('caption'); caption.textContent = 'Canvas course pages'; table.appendChild(caption);
+		const header = table.createTHead().insertRow(); ['Page ID', 'Title', 'URL', 'Status'].forEach(label => { const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = label; header.appendChild(cell); });
+		const body = table.createTBody();
+		[...canvasState.pageMap.values()].flat().sort((a, b) => a.title.localeCompare(b.title)).forEach(page => {
+			const row = body.insertRow();
+			const idCell = row.insertCell(); idCell.textContent = page.id ?? 'Not available';
+			const titleCell = row.insertCell();
+			const link = document.createElement('a');
+			link.href = `${canvasState.canvasBaseUrl}/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`;
+			link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = page.title || 'Untitled page';
+			titleCell.appendChild(link);
+			const urlCell = row.insertCell(); urlCell.textContent = page.url ?? 'Not available';
+			const statusCell = row.insertCell(); statusCell.textContent = page.published === false ? 'Unpublished' : 'Published';
+		});
+		pages.appendChild(table); pages.hidden = false;
+		setCanvasStatus(`Loaded ${[...canvasState.pageMap.values()].flat().length} Canvas page(s).`, 'success');
+	} catch (error) { setCanvasStatus(error.message || 'Unable to list Canvas pages.', 'error'); }
+}
+
+function refreshCanvasMatchPills() {
+	document.querySelectorAll('[data-canvas-title]').forEach(wrapper => {
+		const title = wrapper.dataset.canvasTitle || '';
+		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
+		const pill = wrapper.querySelector('.canvas-match-pill');
+		if (!pill || !canvasState.pageMap.size) return;
+		const matched = matches.length === 1;
+		pill.textContent = matched ? 'Matched in Canvas' : 'Not matched in Canvas';
+		pill.setAttribute('aria-label', `Canvas match status: ${matched ? 'matched' : 'not matched'}`);
+		pill.className = `canvas-match-pill ${matched ? 'matched' : 'unmatched'}`;
+		if (matched) {
+			pill.href = `${canvasState.canvasBaseUrl}/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(matches[0].url)}`;
+			pill.target = '_blank'; pill.rel = 'noopener noreferrer';
+		} else {
+			pill.removeAttribute('href'); pill.removeAttribute('target'); pill.removeAttribute('rel');
+		}
+		pill.title = matches.length > 1 ? 'Multiple Canvas pages have this title; update is not safe.' : (matched ? 'One Canvas page has this title.' : 'No unique Canvas page has this title.');
+	});
+}
+
 async function getAllCanvasPages() {
-	const pages = []; let next = `/api/v1/courses/${encodeURIComponent(canvasState.course.id)}/pages?per_page=100`;
+	const pages = []; let next = `/api/courses/${encodeURIComponent(canvasState.course.id)}/pages`;
 	while (next) {
-		const response = await canvasRequest(next.replace(canvasState.baseUrl, ''));
+		const response = await canvasRequest(next);
 		pages.push(...await response.json());
 		const link = response.headers.get('Link') || ''; const nextMatch = link.match(/<([^>]+)>; rel="next"/);
 		next = nextMatch ? nextMatch[1] : '';
 	}
 	canvasState.pageMap = new Map();
-	pages.forEach(page => { const key = String(page.title || '').trim().toLowerCase(); const entries = canvasState.pageMap.get(key) || []; entries.push({ id: page.page_id || page.id, title: page.title, url: page.url }); canvasState.pageMap.set(key, entries); });
+	pages.forEach(page => { const key = String(page.title || '').trim().toLowerCase(); const entries = canvasState.pageMap.get(key) || []; entries.push({ id: page.page_id || page.id, title: page.title, url: page.url, published: page.published }); canvasState.pageMap.set(key, entries); });
 }
 
 async function updateCanvasPage(title, html, updateButton, viewButton) {
 	if (canvasState.updating.has(title)) return;
 	canvasState.updating.add(title); updateButton.disabled = true; updateButton.textContent = 'Updating…';
 	try {
-		setCanvasStatus('Finding the matching Canvas page…'); await getAllCanvasPages();
+		setCanvasStatus('Preparing the matching Canvas page…');
 		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
 		if (matches.length > 1) throw new Error(`Canvas has ${matches.length} pages titled “${title}”; update was skipped.`);
 		if (!matches.length) throw new Error(`No Canvas page matched “${title}”.`);
 		const page = matches[0];
-		await canvasRequest(`/api/v1/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wiki_page: { body: html } }) });
-		canvasState.updatedPages.set(title, page); viewButton.hidden = false; viewButton.onclick = () => window.open(`${canvasState.baseUrl}/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`, '_blank', 'noopener');
+		const confirmed = window.confirm(`Confirm Canvas page update\n\nCourse: ${canvasState.course.name}\nPage title: ${page.title}\nPage URL: ${page.url}\n\nThe existing Canvas page body will be replaced with the generated CPG HTML. Continue?`);
+		if (!confirmed) {
+			setCanvasStatus(`Update canceled. Canvas page “${title}” was not changed.`);
+			updateButton.disabled = false;
+			updateButton.textContent = 'Update Canvas';
+			return;
+		}
+		await canvasRequest(`/api/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wiki_page: { body: html } }) });
+		canvasState.updatedPages.set(title, page); viewButton.hidden = false; viewButton.onclick = () => window.open(`${canvasState.canvasBaseUrl}/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`, '_blank', 'noopener');
 		setCanvasStatus(`Updated Canvas page “${title}”.`, 'success'); updateButton.textContent = 'Updated';
 	} catch (error) { setCanvasStatus(error.message || 'Canvas page update failed.', 'error'); updateButton.disabled = false; updateButton.textContent = 'Update Canvas'; }
 	finally { canvasState.updating.delete(title); }
 }
 
 function createCanvasActions(title, html) {
-	const wrapper = document.createElement('div');
-const update = document.createElement('button'); update.type = 'button'; update.className = 'canvas-action'; update.dataset.canvasUpdate = 'true'; update.textContent = 'Update Canvas'; update.disabled = true;
+	const wrapper = document.createElement('div'); wrapper.dataset.canvasTitle = title;
+	const pill = document.createElement('a'); pill.className = 'canvas-match-pill unmatched'; pill.textContent = 'Not checked in Canvas'; pill.setAttribute('aria-label', 'Canvas match status: not checked'); wrapper.appendChild(pill);
+	const update = document.createElement('button'); update.type = 'button'; update.className = 'canvas-action'; update.dataset.canvasUpdate = 'true'; update.textContent = 'Update Canvas'; update.disabled = true;
 	const view = document.createElement('button'); view.type = 'button'; view.className = 'canvas-action secondary'; view.textContent = 'View Canvas Page'; view.hidden = true;
 	update.disabled = !(canvasState.authenticated && canvasState.course);
+	refreshCanvasMatchPills();
 	update.onclick = () => updateCanvasPage(title, html, update, view); wrapper.append(update, view); return wrapper;
 }
 
-function refreshCanvasButtons() { document.querySelectorAll('.canvas-action[data-canvas-update]').forEach(button => { button.disabled = !(canvasState.authenticated && canvasState.course) || button.textContent === 'Updated'; }); }
+function refreshCanvasButtons() {
+	document.querySelectorAll('.canvas-action[data-canvas-update]').forEach(button => {
+		const title = button.closest('[data-canvas-title]')?.dataset.canvasTitle || '';
+		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
+		button.disabled = !(canvasState.authenticated && canvasState.course && canvasState.pagesListed && matches.length === 1) || button.textContent === 'Updated';
+	});
+}
 window.addEventListener('beforeunload', clearCanvasState);
 document.addEventListener('DOMContentLoaded', () => {
-	const { login, logout, selectCourse } = canvasElements();
-	login.addEventListener('click', authenticateCanvas); logout.addEventListener('click', clearCanvasState); selectCourse.addEventListener('click', selectCanvasCourse);
+	const { login, logout, selectCourse, listPages } = canvasElements();
+	login.addEventListener('click', authenticateCanvas); logout.addEventListener('click', clearCanvasState); selectCourse.addEventListener('click', selectCanvasCourse); listPages.addEventListener('click', listCanvasPages);
 });
 
 function addEventListeners() {

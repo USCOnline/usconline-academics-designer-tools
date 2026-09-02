@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build CanvasLocalHelper",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/CanvasLocalHelper/CanvasLocalHelper.csproj"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "open Whole Page tool",
+      "type": "process",
+      "command": "open",
+      "args": ["${workspaceFolder}/index.html"],
+      "windows": {
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "Start-Process -FilePath '${workspaceFolder}/index.html'"]
+      },
+      "linux": {
+        "command": "xdg-open"
+      },
+      "dependsOn": "build CanvasLocalHelper",
+      "problemMatcher": []
+    }
+  ]
+}

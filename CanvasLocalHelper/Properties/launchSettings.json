@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "CanvasLocalHelper": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Production"
+      }
+    }
+  }
+}
