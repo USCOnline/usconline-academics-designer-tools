@@ -215,7 +215,8 @@ h1, h2 {
 			</li>
 			<li>Open each section and press the &quot;Copy Code&quot; button.</li>
 			<li>Paste the content into the code view of the relevant Canvas page.
-				<ul><li>For most pages, you can now paste over everything! Select all &gt; Paste. EXCEPT for the following:</li>
+				<ul>
+					<li>For most pages, you can now paste over everything! Select all &gt; Paste. EXCEPT for the following:</li>
 					<li>Course Overview/Outcomes - these sections need to be pasted separately for now</li>
 					<li>Course Readings</li>
 					<li>KCV pages &gt; Only paste the concepts. The Videos are not programmatically generated.</li>
@@ -249,11 +250,13 @@ h1, h2 {
 		<div class="modal-content"> <span class="close">&times;</span>
 			<h2>Is this a BVC or USCOnline Course?</h2>
 			<div>
-			  <label><input type="radio" name="courseType" value="BVC"> BVC</label>
-			  <label><input type="radio" name="courseType" value="USCO"> USCO</label>
-			  <p id="courseTypeError" style="color: red; display: none; margin-top: 8px;">
-			    Please select BVC or USCO before continuing.
-			  </p>
+				<label>
+					<input type="radio" name="courseType" value="BVC">
+					BVC</label>
+				<label>
+					<input type="radio" name="courseType" value="USCO">
+					USCO</label>
+				<p id="courseTypeError" style="color: red; display: none; margin-top: 8px;"> Please select BVC or USCO before continuing. </p>
 			</div>
 			<h2>Enter Your Icon URLs</h2>
 			<label> <img src="images/toverview2.png" alt="Overview icon" width="30"> Weekly Overview Icon URL
@@ -564,7 +567,7 @@ config.boilerplates = {
 };
 
 function toTitleCase(text) {
-	const smallWords = /^(a|an|and|as|at|but|by|for|if|in|nor|of|on|or|so|the|to|up|yet)$/i;
+	const smallWords = /^(a|an|and|as|at|but|by|for|if|in|nor|of|on|or|so|the|to|up|vs|yet)$/i;
 
 	return text.replace(/\w\S*/g, (txt, offset) => {
 
@@ -1347,6 +1350,10 @@ function extractReadings(html) {
 function renderReadingsItem(item, options = {}) {
 	const focusQuestionIconURL = options.focusQuestionIconURL || '';
 	const showFocusQuestions = Array.isArray(item.focusQuestions) && item.focusQuestions.length > 0;
+	const focusQuestionLabel =
+	item.focusQuestions.length === 1
+		? 'Focus Question'
+		: 'Focus Questions';
 	const displayTitle = `${item.headingPrefix || ''}${item.chapterText || ''} ${item.title || ''}`.trim();
 
 	let html = '';
@@ -1363,7 +1370,7 @@ function renderReadingsItem(item, options = {}) {
 		<p>${item.citation || ''}</p>
 		${item.associatedParagraph ? `<p>${item.associatedParagraph}</p>` : ''}
 		${showFocusQuestions ? `
-		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> ${focusQuestionLabel}</strong>:</p>
 		<ul style="padding-left: 15px; padding-right: 20px;">
 			${item.focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
 		</ul>` : ''}
@@ -1376,8 +1383,18 @@ function renderReadingsItem(item, options = {}) {
 
 function renderMultimediaItem(item, options = {}) {
 	const focusQuestionIconURL = options.focusQuestionIconURL || '';
-	const showFocusQuestions = Array.isArray(item.focusQuestions) && item.focusQuestions.length > 0;
-	const displayTitle = `${item.headingPrefix || ''}${item.chapterText || ''} ${item.title || ''}`.trim();
+	const showFocusQuestions =
+		Array.isArray(item.focusQuestions) &&
+		item.focusQuestions.length > 0;
+
+	const focusQuestionLabel =
+	item.focusQuestions.length === 1
+		? 'Focus Question'
+		: 'Focus Questions';
+	
+	// Always use the plain-text title in the H3.
+	const displayTitle =
+		`${item.headingPrefix || ''}${item.chapterText || ''} ${item.title || ''}`.trim();
 
 	let html = `
 		<${item.headingTag || 'h3'} style="font-size: ${item.headingSize || '12pt'};">
@@ -1385,12 +1402,17 @@ function renderMultimediaItem(item, options = {}) {
 			${item.additionalContent || ''}
 		</${item.headingTag || 'h3'}>
 		<p>${item.citation || ''}</p>
-		${item.associatedParagraph ? `<p>${item.associatedParagraph}</p>` : ''}
+		${item.associatedParagraph
+			? `<p>${item.associatedParagraph}</p>`
+			: ''}
 	`;
 
 	if (showFocusQuestions) {
 		html += `
-		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		<p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25"
+			data-api-endpoint="${focusQuestionIconURL}"
+			data-api-returntype="File"
+			data-decorative="true" /> ${focusQuestionLabel}</strong>:</p>
 		<ul style="padding-left: 15px; padding-right: 20px;">
 			${item.focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
 		</ul>`;
@@ -1753,125 +1775,249 @@ function extractOverviewOutcomes(html) {
 }	
 	
 function extractVariablesFromHTML(liElement, h3Element) {
-	let headingSize = (/readings?|example projects?/i.test(h3Element.textContent)) ? '12pt' : '14pt';
-	let headingTag = 'h3'; // Default tag for regular readings
+	const headingSize =
+		(/readings?|example projects?/i.test(h3Element.textContent))
+			? '12pt'
+			: '14pt';
+
+	let headingTag = 'h3';
 	let categoryTitle = '';
 
-	// Ensure we start checking from the list container's immediate sibling
-	let currentElement = liElement.parentNode; // This is the UL or OL element
-	let previousElement = currentElement.previousElementSibling; // Start with the immediate previous sibling
+	const isMultimedia =
+		/multimedia/i.test(h3Element.textContent);
 
-	// Log the HTML of the list container to see the surrounding structure
-	//console.log("HTML just before checking siblings:", currentElement.outerHTML);
-
-	//console.log("Starting to check siblings for H4...");
+	// Check for a category heading immediately preceding the list.
+	let currentElement = liElement.parentNode;
+	let previousElement = currentElement.previousElementSibling;
 
 	while (previousElement && previousElement !== h3Element) {
-		console.log(`Checking sibling: ${previousElement.tagName}`); // Detailed debugging
+		console.log(`Checking sibling: ${previousElement.tagName}`);
+
 		if (previousElement.tagName === 'H4') {
 			headingTag = 'h4';
 			categoryTitle = previousElement.textContent.trim();
-			console.log(`Categorized Reading Detected under H4: ${categoryTitle}`);
+
+			console.log(
+				`Categorized Reading Detected under H4: ${categoryTitle}`
+			);
+
 			break;
 		}
-		previousElement = previousElement.previousElementSibling; // Move to the previous sibling
+
+		previousElement = previousElement.previousElementSibling;
 	}
 
-	if (!categoryTitle) { // If no H4 was found, log the outcome
+	if (!categoryTitle) {
 		console.log("No H4 found before the list.");
 	}
 
+	/*
+	 * Capture the source link and title before processing the citation.
+	 */
 	const aElement = liElement.querySelector('a');
-	const readingTitle = aElement ? toTitleCase(aElement.textContent.trim()) : '';
+
+	const readingTitle = aElement
+		? toTitleCase(aElement.textContent.trim())
+		: '';
+
+	const multimediaUrl = aElement
+		? (aElement.getAttribute('href') || '')
+		: '';
+
+	/*
+	 * Determine whether this is a YouTube item before removing or
+	 * preserving any links in the citation.
+	 */
+	const youtubeMatch = multimediaUrl.match(
+		/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i
+	);
+
 	let associatedParagraph = '';
 
 	const uniqueId = liElement.getAttribute('data-unique-id');
-	const noteParagraph = noteParagraphsArray.find(note => note.uniqueId === uniqueId);
+
+	const noteParagraph = noteParagraphsArray.find(
+		note => note.uniqueId === uniqueId
+	);
+
 	if (noteParagraph) {
 		associatedParagraph = noteParagraph.content;
 	}
 
 	let additionalContent = '';
 	let citation = '';
+
 	const ariaLevel = liElement.getAttribute('aria-level');
+
 	if (ariaLevel !== '2') {
 		const parser = new DOMParser();
-		const doc = parser.parseFromString(liElement.innerHTML, 'text/html');
+
+		const doc = parser.parseFromString(
+			liElement.innerHTML,
+			'text/html'
+		);
+
+		// Remove nested focus-question lists from the citation.
 		doc.querySelectorAll('ol, ul').forEach(el => el.remove());
 
 		if (headingSize === '14pt') {
-			//console.log("Before removing <a> tags:", doc.body.innerHTML);
 			doc.querySelectorAll('a').forEach(a => {
+				const anchorUrl =
+					a.getAttribute('href') || '';
+
+				const isNonYouTubeMultimediaTitleLink =
+					isMultimedia &&
+					!youtubeMatch &&
+					multimediaUrl &&
+					anchorUrl === multimediaUrl;
+
+				/*
+				 * Preserve the original source link inside the
+				 * citation for non-YouTube multimedia.
+				 */
+				if (isNonYouTubeMultimediaTitleLink) {
+					return;
+				}
+
+				/*
+				 * For YouTube items and any other links, remove
+				 * the anchor while retaining its visible text.
+				 */
 				const parent = a.parentNode;
-				//console.log("Removing <a>:", a.outerHTML);
-				while (a.firstChild) parent.insertBefore(a.firstChild, a);
+
+				while (a.firstChild) {
+					parent.insertBefore(a.firstChild, a);
+				}
+
 				parent.removeChild(a);
 			});
-			//console.log("After removing <a> tags:", doc.body.innerHTML); 
 		}
+
 		citation = doc.body.innerHTML.trim();
 	}
-	console.log("Citation content before processing:", citation); // Add this log
+
+	console.log(
+		"Multimedia URL:",
+		multimediaUrl
+	);
+
+	console.log(
+		"YouTube match:",
+		youtubeMatch
+	);
+
+	console.log(
+		"Citation content before processing:",
+		citation
+	);
+
 	let headingPrefix = '';
-	if (/multimedia/i.test(h3Element.textContent)) {
-		const bracketMatch = citation.match(/\[([^\]]+)\]/);
+
+	if (isMultimedia) {
+		const bracketMatch =
+			citation.match(/\[([^\]]+)\]/);
+
 		if (bracketMatch) {
 			headingPrefix = bracketMatch[1] + ':';
 		}
 	}
+
 	if (headingPrefix && readingTitle) {
-		console.log(`Multimedia Title Found: ${readingTitle}`);
+		console.log(
+			`Multimedia Title Found: ${readingTitle}`
+		);
 	}
+
 	let chapterText = '';
-	const chapterRegex = /<strong>(.*?)(?:\s*[:\-–—]\s*)?<\/strong>(?:\s*[:\-–—]\s*)?/i;
-	const chapterMatch = citation.match(chapterRegex);
+
+	const chapterRegex =
+		/<strong>(.*?)(?:\s*[:\-–—]\s*)?<\/strong>(?:\s*[:\-–—]\s*)?/i;
+
+	const chapterMatch =
+		citation.match(chapterRegex);
+
 	if (chapterMatch) {
 		chapterText = chapterMatch[1].trim();
-		// Check if the original match had any separator punctuation
+
 		if (chapterMatch[0].match(/[:\-–—]/)) {
 			chapterText += ' - ';
 		}
 	}
 
 	let timestamp = '';
-	const timestampMatch = citation.match(/\((\d{1,2}\s?:\s?\d{2}(?:\s?:\s?\d{2})?)\)/);
+
+	const timestampMatch = citation.match(
+		/\((\d{1,2}\s?:\s?\d{2}(?:\s?:\s?\d{2})?)\)/
+	);
+
 	if (timestampMatch) {
-		timestamp = timestampMatch[1].replace(/\s/g, '');
+		timestamp =
+			timestampMatch[1].replace(/\s/g, '');
 	}
 
-	if (/multimedia/i.test(h3Element.textContent)) {
+	if (isMultimedia) {
 		if (/Video/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
+			additionalContent =
+				`(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
 		} else if (/Audio/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
+			additionalContent =
+				`(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
 		} else if (/Podcast/i.test(headingPrefix)) {
-			additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
+			additionalContent =
+				`(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
 		} else if (/Interactive multimedia/i.test(headingPrefix)) {
-	  		additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
+			additionalContent =
+				`(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
 		} else if (/Multimedia case/i.test(headingPrefix)) {
-	  		additionalContent = `(${timestamp}, <a href="#" aria-label="${readingTitle} Case Transcript">Transcript</a>)`;
+			additionalContent =
+				`(${timestamp}, <a href="#" aria-label="${readingTitle} Case Transcript">Transcript</a>)`;
 		}
 	}
 
-	citation = citation.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '').trim();
-	citation = citation.replace(chapterRegex, '').trim();
+	// Remove the runtime from the citation.
+	citation = citation
+		.replace(/\(\d{1,2}:\d{2}(:\d{2})?\)/, '')
+		.trim();
+
+	// Remove any separately extracted chapter label.
+	citation = citation
+		.replace(chapterRegex, '')
+		.trim();
 
 	const focusQuestions = [];
-	const focusQuestionElements = liElement.querySelectorAll('li[aria-level="2"]');
+
+	const focusQuestionElements =
+		liElement.querySelectorAll('li[aria-level="2"]');
+
 	focusQuestionElements.forEach(element => {
-		focusQuestions.push(element.innerHTML.trim());
-		element.classList.add('marked-for-removal'); // Marking for potential removal
+		focusQuestions.push(
+			element.innerHTML.trim()
+		);
+
+		element.classList.add('marked-for-removal');
 	});
 
 	let iframeTemplate = '';
-	if (/multimedia/i.test(h3Element.textContent)) {
-		let videoID = '';
-		const linkMatch = citation.match(/(?:watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-		if (linkMatch) {
-			videoID = linkMatch[1];
-			console.log("Detected YouTube ID: ", videoID); // Add this log to see if it's working
-			iframeTemplate = `<p><iframe title="${readingTitle} Video" src="https://www.youtube.com/embed/${videoID}?rel=0" width="560" height="315" allowfullscreen="allowfullscreen" webkitallowfullscreen="webkitallowfullscreen" mozallowfullscreen="mozallowfullscreen"></iframe></p>`;
-		}
+
+	/*
+	 * Only YouTube multimedia receives an iframe.
+	 * Its citation link was unwrapped above.
+	 */
+	if (isMultimedia && youtubeMatch) {
+		const videoID = youtubeMatch[1];
+
+		console.log(
+			"Detected YouTube ID:",
+			videoID
+		);
+
+		iframeTemplate =
+			`<p><iframe title="${readingTitle} Video" ` +
+			`src="https://www.youtube.com/embed/${videoID}?rel=0" ` +
+			`width="560" height="315" ` +
+			`allowfullscreen="allowfullscreen" ` +
+			`webkitallowfullscreen="webkitallowfullscreen" ` +
+			`mozallowfullscreen="mozallowfullscreen"></iframe></p>`;
 	}
 
 	return {
@@ -1887,9 +2033,7 @@ function extractVariablesFromHTML(liElement, h3Element) {
 		focusQuestions,
 		iframeTemplate
 	};
-
 }
-
 function findNextH4OrList(startElement) {
 	let currentElement = startElement;
 
@@ -2082,6 +2226,10 @@ function generateTemplate(variables) {
 		focusQuestions,
 		iframeTemplate
 	} = variables;
+	const focusQuestionLabel =
+	focusQuestions.length === 1
+		? 'Focus Question'
+		: 'Focus Questions';
 	console.log("iframeTemplate content before returning the template:", iframeTemplate); // Add this log
 	return `
 		   <${headingTag} style="font-size: ${headingSize};">
@@ -2091,7 +2239,7 @@ function generateTemplate(variables) {
 		   <p>${citation}</p>
 		   ${associatedParagraph ? `<p>${associatedParagraph}</p>` : ''}
 		   ${focusQuestions.length > 0 ? `
-		   <p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> Focus Questions</strong>:</p>
+		   <p><strong><img src="${focusQuestionIconURL}" alt="" width="25" height="25" data-api-endpoint="${focusQuestionIconURL}" data-api-returntype="File" data-decorative="true" /> ${focusQuestionLabel}</strong>:</p>
 		   <ul style="padding-left: 15px; padding-right: 20px;">
 			  ${focusQuestions.map(q => `<li>${q}</li>`).join('\n')}
 		   </ul>` : ''}
