@@ -10,6 +10,20 @@ From the repository root:
 dotnet run --project CanvasLocalHelper
 ```
 
+## Prerequisites
+
+Before running the helper, install the **.NET 10 SDK**. The SDK is the free software required to run this local console app; non-developers should download the installer for their computer from the official Microsoft page:
+
+<https://dotnet.microsoft.com/download/dotnet/10.0>
+
+On the Microsoft download page, choose the **SDK** (not just the Runtime) for your operating system. After installation, open a new PowerShell or Terminal window and confirm it is available by running:
+
+```powershell
+dotnet --version
+```
+
+The version shown should begin with `10.`. If the command is not recognized, restart the computer and try again.
+
 In Visual Studio, select the `CanvasLocalHelper + index.html` launch profile to start the helper in an external process and open the repository index page in the default browser.
 
 In VS Code with the C# extension or C# Dev Kit installed, select `CanvasLocalHelper + index.html` from **Run and Debug**. The project is built first, `index.html` opens in the default browser, and the helper runs in an external terminal.
