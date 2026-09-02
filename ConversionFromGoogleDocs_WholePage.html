@@ -33,6 +33,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, [contenteditabl
 .canvas-match-pill { display: inline-block; margin: 5px 5px 0 0; padding: 0.3rem 0.6rem; border-radius: 999px; font-size: .875rem; font-weight: 600; }
 .canvas-match-pill.matched { color: #155724; background: #d4edda; }
 .canvas-match-pill.unmatched { color: #721c24; background: #f8d7da; }
+.canvas-match-pill.overridden { color: #7a4b00; background: #ffe0a6; }
+.canvas-content-pill { color: #555; background: #e2e3e5; }
+.canvas-content-pill.match { color: #155724; background: #d4edda; }
+.canvas-content-pill.mismatch { color: #721c24; background: #f8d7da; }
+.canvas-override { margin: 5px 5px 0 0; padding: 0.35rem; min-width: 220px; }
 .classification { margin: 20px 15px; padding-top: 8px; border-top: 1px solid #ccc; font-size: .875rem; }
 textarea {
 	display: block;
@@ -2478,7 +2483,7 @@ function removeAllAriaLevels(html) {
 }
 
 // Canvas credentials and course/page data intentionally live only in this page's memory.
-const canvasState = { helperUrl: '', canvasBaseUrl: '', environment: '', authenticated: false, course: null, pagesListed: false, pageMap: new Map(), updating: new Set(), updatedPages: new Map() };
+const canvasState = { helperUrl: '', canvasBaseUrl: '', environment: '', authenticated: false, course: null, pagesListed: false, pageMap: new Map(), overrides: new Map(), generatedContent: new Map(), contentMatches: new Map(), updating: new Set(), updatedPages: new Map() };
 const canvasElements = () => ({
 	helperUrl: document.getElementById('canvasHelperUrl'),
 	login: document.getElementById('canvasLoginButton'), logout: document.getElementById('canvasLogoutButton'),
@@ -2542,7 +2547,7 @@ async function authenticateCanvas() {
 
 function clearCanvasState() {
 	canvasState.authenticated = false; canvasState.helperUrl = ''; canvasState.canvasBaseUrl = ''; canvasState.environment = ''; canvasState.course = null; canvasState.pagesListed = false;
-	canvasState.pageMap.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
+	canvasState.pageMap.clear(); canvasState.overrides.clear(); canvasState.generatedContent.clear(); canvasState.contentMatches.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
 	const { helperUrl, logout, selectCourse, listPages, details, pages } = canvasElements();
 	helperUrl.value = ''; logout.hidden = true; selectCourse.disabled = true; listPages.disabled = true; details.hidden = true; details.textContent = ''; pages.hidden = true; pages.textContent = '';
 	setCanvasStatus('Canvas connection cleared.');
@@ -2554,7 +2559,7 @@ async function selectCanvasCourse() {
 	const courseId = id.trim();
 	if (!/^\d+$/.test(courseId)) { setCanvasStatus('Enter a numeric Canvas Course ID.', 'error'); return; }
 	canvasState.course = null; canvasState.pagesListed = false;
-	canvasState.pageMap.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
+	canvasState.pageMap.clear(); canvasState.overrides.clear(); canvasState.generatedContent.clear(); canvasState.contentMatches.clear(); canvasState.updatedPages.clear(); canvasState.updating.clear();
 	const courseUi = canvasElements();
 	courseUi.details.hidden = true; courseUi.details.textContent = '';
 	courseUi.pages.hidden = true; courseUi.pages.textContent = '';
@@ -2588,6 +2593,7 @@ async function listCanvasPages() {
 		canvasState.pagesListed = true;
 		refreshCanvasMatchPills();
 		refreshCanvasButtons();
+		await compareMatchedPageContent();
 		pages.textContent = '';
 		const heading = document.createElement('h3'); heading.textContent = `Pages in ${canvasState.course.name}`; pages.appendChild(heading);
 		const note = document.createElement('p'); note.textContent = 'Canvas returns Pages as a flat list; the Pages API does not provide parent/child hierarchy.'; pages.appendChild(note);
@@ -2602,7 +2608,7 @@ async function listCanvasPages() {
 			const link = document.createElement('a');
 			link.href = `${canvasState.canvasBaseUrl}/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(page.url)}`;
 			link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = page.title || 'Untitled page';
-			titleCell.appendChild(link);
+		titleCell.appendChild(link);
 			const urlCell = row.insertCell(); urlCell.textContent = page.url ?? 'Not available';
 			const statusCell = row.insertCell(); statusCell.textContent = page.published === false ? 'Unpublished' : 'Published';
 		});
@@ -2616,9 +2622,23 @@ function refreshCanvasMatchPills() {
 		const title = wrapper.dataset.canvasTitle || '';
 		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
 		const pill = wrapper.querySelector('.canvas-match-pill');
+		const override = canvasState.overrides.get(title);
+		const overrideSelect = wrapper.querySelector('.canvas-override');
+		if (overrideSelect) {
+			while (overrideSelect.options.length > 1) overrideSelect.remove(1);
+			[...canvasState.pageMap.values()].flat().sort((a, b) => a.title.localeCompare(b.title)).forEach(page => { const option = document.createElement('option'); option.value = page.url; option.textContent = `${page.title} | ${page.id}`; overrideSelect.appendChild(option); });
+			overrideSelect.value = override?.url || '';
+			overrideSelect.disabled = !canvasState.pagesListed;
+		}
 		if (!pill || !canvasState.pageMap.size) return;
+		if (override) {
+			pill.textContent = 'Page not matched - overridden'; pill.className = 'canvas-match-pill overridden';
+			pill.setAttribute('aria-label', 'Canvas match status: not matched - overridden');
+			pill.removeAttribute('href'); pill.removeAttribute('target'); pill.removeAttribute('rel');
+			return;
+		}
 		const matched = matches.length === 1;
-		pill.textContent = matched ? 'Matched in Canvas' : 'Not matched in Canvas';
+		pill.textContent = matched ? 'Page matched in Canvas' : 'Page not matched in Canvas';
 		pill.setAttribute('aria-label', `Canvas match status: ${matched ? 'matched' : 'not matched'}`);
 		pill.className = `canvas-match-pill ${matched ? 'matched' : 'unmatched'}`;
 		if (matched) {
@@ -2628,6 +2648,27 @@ function refreshCanvasMatchPills() {
 			pill.removeAttribute('href'); pill.removeAttribute('target'); pill.removeAttribute('rel');
 		}
 		pill.title = matches.length > 1 ? 'Multiple Canvas pages have this title; update is not safe.' : (matched ? 'One Canvas page has this title.' : 'No unique Canvas page has this title.');
+	});
+}
+
+function normalizeHtml(html) { return String(html || '').trim().replace(/>\s+</g, '><').replace(/\s+/g, ' '); }
+
+async function compareMatchedPageContent() {
+	canvasState.contentMatches.clear();
+	const candidates = [...canvasState.generatedContent.keys()].map(title => ({ title, matches: canvasState.overrides.has(title) ? [canvasState.overrides.get(title)] : (canvasState.pageMap.get(title.trim().toLowerCase()) || []) })).filter(item => item.matches.length === 1);
+	setCanvasStatus(`Comparing generated HTML with ${candidates.length} matched Canvas page${candidates.length === 1 ? '' : 's'}…`);
+	await Promise.all(candidates.map(async ({ title, matches }) => {
+		try { const response = await canvasRequest(`/api/courses/${encodeURIComponent(canvasState.course.id)}/pages/${encodeURIComponent(matches[0].url)}`); const page = await response.json(); canvasState.contentMatches.set(title, normalizeHtml(page.body || page.wiki_page?.body) === normalizeHtml(canvasState.generatedContent.get(title))); }
+		catch (error) { canvasState.contentMatches.set(title, null); }
+	}));
+	refreshContentPills();
+	setCanvasStatus('Page matching and content comparison complete.', 'success');
+}
+
+function refreshContentPills() {
+	document.querySelectorAll('[data-canvas-title]').forEach(wrapper => {
+		const title = wrapper.dataset.canvasTitle || ''; const pill = wrapper.querySelector('.canvas-content-pill'); if (!pill) return;
+		const result = canvasState.contentMatches.get(title); pill.textContent = result === true ? 'Content matches' : result === false ? 'Content does not match' : 'Content not checked'; pill.className = `canvas-match-pill canvas-content-pill ${result === true ? 'match' : result === false ? 'mismatch' : ''}`; pill.setAttribute('aria-label', `Canvas content status: ${pill.textContent}`);
 	});
 }
 
@@ -2648,7 +2689,7 @@ async function updateCanvasPage(title, html, updateButton, viewButton) {
 	canvasState.updating.add(title); updateButton.disabled = true; updateButton.textContent = 'Updating…';
 	try {
 		setCanvasStatus('Preparing the matching Canvas page…');
-		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
+		const matches = canvasState.overrides.has(title) ? [canvasState.overrides.get(title)] : (canvasState.pageMap.get(title.trim().toLowerCase()) || []);
 		if (matches.length > 1) throw new Error(`Canvas has ${matches.length} pages titled “${title}”; update was skipped.`);
 		if (!matches.length) throw new Error(`No Canvas page matched “${title}”.`);
 		const page = matches[0];
@@ -2667,11 +2708,17 @@ async function updateCanvasPage(title, html, updateButton, viewButton) {
 }
 
 function createCanvasActions(title, html) {
-	const wrapper = document.createElement('div'); wrapper.dataset.canvasTitle = title;
+	const wrapper = document.createElement('div'); wrapper.dataset.canvasTitle = title; canvasState.generatedContent.set(title, html);
 	const pill = document.createElement('a'); pill.className = 'canvas-match-pill unmatched'; pill.textContent = 'Not checked in Canvas'; pill.setAttribute('aria-label', 'Canvas match status: not checked'); wrapper.appendChild(pill);
+	const contentPill = document.createElement('span'); contentPill.className = 'canvas-match-pill canvas-content-pill'; contentPill.textContent = 'Content not checked'; contentPill.setAttribute('aria-label', 'Canvas content status: not checked'); wrapper.appendChild(contentPill);
+	const overrideSelect = document.createElement('select'); overrideSelect.className = 'canvas-override'; overrideSelect.disabled = !canvasState.pagesListed; overrideSelect.setAttribute('aria-label', `Override Canvas page mapping for ${title}`);
+	const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Override mapping…'; overrideSelect.appendChild(placeholder);
+	[...canvasState.pageMap.values()].flat().sort((a, b) => a.title.localeCompare(b.title)).forEach(page => { const option = document.createElement('option'); option.value = page.url; option.textContent = `${page.title} | ${page.id}`; overrideSelect.appendChild(option); });
+	overrideSelect.addEventListener('change', async () => { const selected = [...canvasState.pageMap.values()].flat().find(page => page.url === overrideSelect.value); if (selected) canvasState.overrides.set(title, selected); else canvasState.overrides.delete(title); refreshCanvasMatchPills(); refreshCanvasButtons(); if (canvasState.pagesListed) await compareMatchedPageContent(); });
+	wrapper.appendChild(overrideSelect);
 	const update = document.createElement('button'); update.type = 'button'; update.className = 'canvas-action'; update.dataset.canvasUpdate = 'true'; update.textContent = 'Update Canvas'; update.disabled = true;
 	const view = document.createElement('button'); view.type = 'button'; view.className = 'canvas-action secondary'; view.textContent = 'View Canvas Page'; view.hidden = true;
-	update.disabled = !(canvasState.authenticated && canvasState.course);
+	update.disabled = !(canvasState.authenticated && canvasState.course && canvasState.pagesListed && (canvasState.overrides.has(title) || (canvasState.pageMap.get(title.trim().toLowerCase()) || []).length === 1));
 	refreshCanvasMatchPills();
 	update.onclick = () => updateCanvasPage(title, html, update, view); wrapper.append(update, view); return wrapper;
 }
@@ -2679,7 +2726,7 @@ function createCanvasActions(title, html) {
 function refreshCanvasButtons() {
 	document.querySelectorAll('.canvas-action[data-canvas-update]').forEach(button => {
 		const title = button.closest('[data-canvas-title]')?.dataset.canvasTitle || '';
-		const matches = canvasState.pageMap.get(title.trim().toLowerCase()) || [];
+		const matches = canvasState.overrides.has(title) ? [canvasState.overrides.get(title)] : (canvasState.pageMap.get(title.trim().toLowerCase()) || []);
 		button.disabled = !(canvasState.authenticated && canvasState.course && canvasState.pagesListed && matches.length === 1) || button.textContent === 'Updated';
 	});
 }

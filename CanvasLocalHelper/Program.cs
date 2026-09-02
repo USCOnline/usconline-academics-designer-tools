@@ -83,6 +83,7 @@ app.Use(async (context, next) =>
 app.MapGet("/api/status", () => Results.Ok(new { connected = !string.IsNullOrEmpty(token), environment = environmentInput, canvasBaseUrl }));
 app.MapGet("/api/courses/{courseId}", async (string courseId) => await CanvasProxy($"/api/v1/courses/{Uri.EscapeDataString(courseId)}?include[]=sis_course_id&include[]=account"));
 app.MapGet("/api/courses/{courseId}/pages", async (string courseId) => await GetAllPages(courseId));
+app.MapGet("/api/courses/{courseId}/pages/{pageUrl}", async (string courseId, string pageUrl) => await CanvasProxy($"/api/v1/courses/{Uri.EscapeDataString(courseId)}/pages/{Uri.EscapeDataString(pageUrl)}"));
 app.MapPut("/api/courses/{courseId}/pages/{pageUrl}", async (string courseId, string pageUrl, HttpRequest request) =>
 {
     using var body = await JsonDocument.ParseAsync(request.Body);
