@@ -58,10 +58,100 @@ h1, h2 {
 	padding: 20px;
 	border: 1px solid #888;
 	width: 80%;
+	max-width: 960px;
+	box-sizing: border-box;
 }
 .modal-input {
 	width: 100%;
 	height: 2rem;
+	box-sizing: border-box;
+	margin-top: 4px;
+}
+.icon-entry-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 140px;
+	column-gap: 24px;
+	row-gap: 10px;
+	align-items: center;
+}
+.icon-entry-grid h2,
+.icon-entry-grid h3 {
+	margin: 0 0 2px;
+}
+.icon-preview-heading {
+	color: #990000;
+	font-size: 1.1rem;
+	text-align: center;
+}
+.icon-url-field label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 3px;
+}
+.icon-url-field label img {
+	width: 30px;
+	height: 30px;
+	object-fit: contain;
+}
+.icon-preview {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 62px;
+	padding: 4px;
+	border: 1px dashed #aaa;
+	border-radius: 6px;
+	background: #f7f7f7;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+.icon-preview img {
+	display: none;
+	max-width: 54px;
+	max-height: 54px;
+	object-fit: contain;
+}
+.icon-preview.loaded img {
+	display: block;
+}
+.icon-preview-status {
+	color: #666;
+	font-size: 0.78rem;
+	line-height: 1.2;
+	text-align: center;
+}
+.icon-preview.loaded .icon-preview-status {
+	display: none;
+}
+.icon-preview.error {
+	border-color: #b00020;
+	background: #fff5f6;
+}
+.icon-preview.error .icon-preview-status {
+	color: #b00020;
+}
+#submitUrl {
+	margin-top: 14px;
+}
+@media (max-width: 700px) {
+	.modal-content {
+		width: calc(100% - 24px);
+		margin: 12px auto;
+	}
+	.icon-entry-grid {
+		grid-template-columns: 1fr;
+		row-gap: 8px;
+	}
+	.icon-preview-heading {
+		display: none;
+	}
+	.icon-preview {
+		justify-content: flex-start;
+		min-height: 58px;
+		margin-bottom: 6px;
+		padding-left: 12px;
+	}
 }
 .close {
 	color: #aaa;
@@ -154,16 +244,18 @@ h1, h2 {
 	<div id="instructions">
 		<p><strong>Instructions:</strong></p>
 		<ol>
-			<li>Open your CPG in Google Docs</li>
-			<li>Copy the entire document </li>
+			<li>Open your CPG in Google Docs.</li>
+			<li>Copy the entire document. </li>
 			<ul>
 				<li>Edit &gt; Select all</li>
 			</ul>
-			<li>Paste the content into the box below</li>
-			<li>Press the &quot;Format Me!&quot; button</li>
-			<li>Enter your course's icon URLs (from the "Icon Reference - DELETE AFTER BUILD" page in the Start Here Module) and select &quot;Submit&quot;
+			<li>Paste the content into the box below.</li>
+			<li>Press the &quot;Format Me!&quot; button.</li>
+			<li>Choose whether this is a BVC or USCOnline course. You must make a selection.</li>
+			<li>Enter your course's icon URLs* (from the "Icon Reference - DELETE AFTER BUILD" page in the Start Here Module) and select &quot;Submit.&quot;
 				<ul>
 					<li>You can get these URLs by right-clicking the icon in Canvas and selecting &quot;Copy image address&quot;</li>
+					<li>*If you're just checking the CPG formatting, you do not need to enter these.</li>
 				</ul>
 			</li>
 			<li>Open each section and press the &quot;Copy Code&quot; button.</li>
@@ -211,35 +303,73 @@ h1, h2 {
 					USCO</label>
 				<p id="courseTypeError" style="color: red; display: none; margin-top: 8px;"> Please select BVC or USCO before continuing. </p>
 			</div>
-			<h2>Enter Your Icon URLs</h2>
-			<label> <img src="images/toverview2.png" alt="Overview icon" width="30"> Weekly Overview Icon URL
-				<input type="text" id="overviewIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tlearningoutcome1.png" alt="Outcomes icon" width="30"> Weekly Outcomes Icon URL
-				<input type="text" id="outcomesIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tread.png" alt="Readings icon" width="30"> Weekly Readings Icon URL
-				<input type="text" id="readingsIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tpresentation-1.png" alt="Multimedia icon" width="30"> Weekly Multimedia Icon URL
-				<input type="text" id="multimediaIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tidea-25.png" alt="Focus Questions icon" width="30"> Focus Questions Icon URL
-				<input type="text" id="focusIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tdiscussion.png" alt="Discussion icon" width="30"> Weekly Discussion Icon URL
-				<input type="text" id="discussionIconInput" class="modal-input">
-			</label>
-			<br>
-			<label> <img src="images/tassignment.png" alt="Assignment/Activity icon" width="30"> Weekly Assignment/Activity Icon URL
-				<input type="text" id="assignmentIconInput" class="modal-input">
-			</label>
-			<br>
+			<div class="icon-entry-grid">
+				<h2>Enter Your Icon URLs</h2>
+				<h3 class="icon-preview-heading">Preview</h3>
+
+				<div class="icon-url-field">
+					<label for="overviewIconInput"><img src="images/toverview2.png" alt="Overview icon"> Weekly Overview Icon URL</label>
+					<input type="text" id="overviewIconInput" class="modal-input" data-preview-id="overviewIconPreview">
+				</div>
+				<div class="icon-preview" id="overviewIconPreview">
+					<img alt="Weekly Overview icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="outcomesIconInput"><img src="images/tlearningoutcome1.png" alt="Outcomes icon"> Weekly Outcomes Icon URL</label>
+					<input type="text" id="outcomesIconInput" class="modal-input" data-preview-id="outcomesIconPreview">
+				</div>
+				<div class="icon-preview" id="outcomesIconPreview">
+					<img alt="Weekly Outcomes icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="readingsIconInput"><img src="images/tread.png" alt="Readings icon"> Weekly Readings Icon URL</label>
+					<input type="text" id="readingsIconInput" class="modal-input" data-preview-id="readingsIconPreview">
+				</div>
+				<div class="icon-preview" id="readingsIconPreview">
+					<img alt="Weekly Readings icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="multimediaIconInput"><img src="images/tpresentation-1.png" alt="Multimedia icon"> Weekly Multimedia Icon URL</label>
+					<input type="text" id="multimediaIconInput" class="modal-input" data-preview-id="multimediaIconPreview">
+				</div>
+				<div class="icon-preview" id="multimediaIconPreview">
+					<img alt="Weekly Multimedia icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="focusIconInput"><img src="images/tidea-25.png" alt="Focus Questions icon"> Focus Questions Icon URL</label>
+					<input type="text" id="focusIconInput" class="modal-input" data-preview-id="focusIconPreview">
+				</div>
+				<div class="icon-preview" id="focusIconPreview">
+					<img alt="Focus Questions icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="discussionIconInput"><img src="images/tdiscussion.png" alt="Discussion icon"> Weekly Discussion Icon URL</label>
+					<input type="text" id="discussionIconInput" class="modal-input" data-preview-id="discussionIconPreview">
+				</div>
+				<div class="icon-preview" id="discussionIconPreview">
+					<img alt="Weekly Discussion icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+
+				<div class="icon-url-field">
+					<label for="assignmentIconInput"><img src="images/tassignment.png" alt="Assignment/Activity icon"> Weekly Assignment/Activity Icon URL</label>
+					<input type="text" id="assignmentIconInput" class="modal-input" data-preview-id="assignmentIconPreview">
+				</div>
+				<div class="icon-preview" id="assignmentIconPreview">
+					<img alt="Weekly Assignment/Activity icon URL preview">
+					<span class="icon-preview-status" aria-live="polite">No URL entered</span>
+				</div>
+			</div>
 			<button id="submitUrl">Submit</button>
 		</div>
 	</div>
@@ -587,6 +717,57 @@ function getCourseReadingsUrl() {
 	return `${match[1]}/pages/course-readings`;
 }
 
+function linkCourseReadingsReferences(html) {
+	const courseReadingsUrl = getCourseReadingsUrl();
+
+	if (!courseReadingsUrl || !/Course Readings/.test(html)) {
+		return html;
+	}
+
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const textNodes = [];
+	const walker = doc.createTreeWalker(doc.body, 4);
+
+	while (walker.nextNode()) {
+		textNodes.push(walker.currentNode);
+	}
+
+	textNodes.forEach(textNode => {
+		if (textNode.parentElement?.closest('a, script, style')) return;
+
+		const text = textNode.nodeValue || '';
+		const pattern = /Course Readings/g;
+		let match = pattern.exec(text);
+
+		if (!match) return;
+
+		const fragment = doc.createDocumentFragment();
+		let previousIndex = 0;
+
+		do {
+			fragment.appendChild(
+				doc.createTextNode(text.slice(previousIndex, match.index))
+			);
+
+			const link = doc.createElement('a');
+			link.setAttribute('href', courseReadingsUrl);
+			link.setAttribute('data-api-endpoint', courseReadingsUrl);
+			link.setAttribute('data-api-returntype', 'Page');
+			link.textContent = 'Course Readings';
+			fragment.appendChild(link);
+
+			previousIndex = match.index + match[0].length;
+			match = pattern.exec(text);
+		} while (match);
+
+		fragment.appendChild(doc.createTextNode(text.slice(previousIndex)));
+		textNode.replaceWith(fragment);
+	});
+
+	return doc.body.innerHTML;
+}
+
 function generateUniqueId(item) {
 	return item.textContent.trim().toLowerCase().replace(/\s+/g, '-') + '-' + Math.random().toString(36).substr(2, 9);
 }
@@ -667,6 +848,71 @@ const transformations = {
 	},
 	removeAnchorStyles(html, config) {
 		return html.replace(config.patterns.anchorWithStyle, config.replacements.removeAnchorStyle);
+	},
+	moveLinkBoundaryWhitespaceOutsideAnchors(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+
+		function getTextNodes(element) {
+			const nodes = [];
+			const walker = doc.createTreeWalker(element, 4);
+
+			while (walker.nextNode()) {
+				nodes.push(walker.currentNode);
+			}
+
+			return nodes;
+		}
+
+		function removeLeadingWhitespace(textNodes) {
+			for (const textNode of textNodes) {
+				const originalText = textNode.nodeValue || '';
+				const trimmedText = originalText.replace(/^\s+/, '');
+				textNode.nodeValue = trimmedText;
+
+				if (trimmedText) break;
+			}
+		}
+
+		function removeTrailingWhitespace(textNodes) {
+			for (const textNode of [...textNodes].reverse()) {
+				const originalText = textNode.nodeValue || '';
+				const trimmedText = originalText.replace(/\s+$/, '');
+				textNode.nodeValue = trimmedText;
+
+				if (trimmedText) break;
+			}
+		}
+
+		doc.querySelectorAll('a').forEach(anchor => {
+			const linkText = anchor.textContent || '';
+
+			if (!linkText.trim()) {
+				if (anchor.children.length === 0) {
+					anchor.replaceWith(doc.createTextNode(linkText));
+				}
+				return;
+			}
+
+			const leadingWhitespace = linkText.match(/^\s+/)?.[0] || '';
+			const trailingWhitespace = linkText.match(/\s+$/)?.[0] || '';
+
+			if (!leadingWhitespace && !trailingWhitespace) return;
+
+			const textNodes = getTextNodes(anchor);
+
+			if (leadingWhitespace) {
+				removeLeadingWhitespace(textNodes);
+				anchor.before(doc.createTextNode(leadingWhitespace));
+			}
+
+			if (trailingWhitespace) {
+				removeTrailingWhitespace(textNodes);
+				anchor.after(doc.createTextNode(trailingWhitespace));
+			}
+		});
+
+		return doc.body.innerHTML;
 	},
 	convertNbspToSpaces(html, config) {
 		return html.replace(config.patterns.nbsp, config.replacements.nbsp);
@@ -930,6 +1176,54 @@ const transformations = {
 
 		return doc.body.innerHTML;
 	},
+	removeChangeLogSections(html, config) {
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(html, 'text/html');
+		const headings = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+
+		function isEmptySpacer(element) {
+			return (
+				/^(P|DIV|BR)$/.test(element.tagName) &&
+				!normalizeText(element.textContent) &&
+				!element.querySelector('img, hr, iframe, video, audio, table, ul, ol')
+			);
+		}
+
+		headings.forEach(heading => {
+			if (!/^change log$/i.test(normalizeText(heading.textContent))) return;
+
+			const headingLevel = parseInt(heading.tagName[1], 10);
+			const elementsToRemove = [heading];
+			const spacerElements = [];
+			let precedingElement = heading.previousElementSibling;
+			let nextElement = heading.nextElementSibling;
+
+			while (precedingElement && isEmptySpacer(precedingElement)) {
+				spacerElements.push(precedingElement);
+				precedingElement = precedingElement.previousElementSibling;
+			}
+
+			if (precedingElement?.tagName === 'HR') {
+				elementsToRemove.unshift(precedingElement, ...spacerElements);
+			}
+
+			while (nextElement) {
+				if (
+					/^H[1-6]$/.test(nextElement.tagName) &&
+					parseInt(nextElement.tagName[1], 10) <= headingLevel
+				) {
+					break;
+				}
+
+				elementsToRemove.push(nextElement);
+				nextElement = nextElement.nextElementSibling;
+			}
+
+			elementsToRemove.forEach(element => element.remove());
+		});
+
+		return doc.body.innerHTML;
+	},
 	adjustExternalLinks(html, config) {
 		const parser = new DOMParser();
 		const doc = parser.parseFromString(html, 'text/html');
@@ -1030,6 +1324,10 @@ const noteParagraphsArray = [];
 function normalizeText(text) {
 	return (text || '').replace(/\s+/g, ' ').trim();
 }
+
+function capitalizeAllWords(text) {
+	return (text || '').replace(/\b[a-z]/g, letter => letter.toUpperCase());
+}
 	
 function looksLikeWeekModuleTitle(text) {
 	return /^(Week\s*\d+\b.*|Module\s*\d+\b.*)$/i.test(text);
@@ -1116,9 +1414,9 @@ function extractStaticCourseTabs(html) {
 	const doc = parser.parseFromString(html, 'text/html');
 
 	const targets = [
-		{ title: 'Canvas Course Overview', re: /^Canvas Course Overview$/i },
-		{ title: 'Course Learning Objectives (CLOs)', re: /^Course Learning Objectives(?:\s*\(CLOs\))?$/i },
-		{ title: 'Course Readings', re: /^Course Readings$/i }
+		{ title: 'Canvas Course Overview', re: /^Canvas Course Overview$/i, includeHeading: false },
+		{ title: 'Course Learning Objectives (CLOs)', re: /^Course Learning Objectives(?:\s*\(CLOs\))?$/i, includeHeading: false },
+		{ title: 'Course Readings', re: /^Course Readings$/i, includeHeading: false }
 	];
 
 	const sections = [];
@@ -1136,7 +1434,7 @@ function extractStaticCourseTabs(html) {
 
 				activeSection = {
 					title: target.title,
-					content: child.outerHTML,
+					content: target.includeHeading ? child.outerHTML : '',
 					subSections: []
 				};
 				return;
@@ -1188,6 +1486,14 @@ function getWeekNumberFromHeading(text) {
 	return match ? parseInt(match[1], 10) : null;
 }
 
+function getWeeklyAccordionTitle(weekNumber, pageName) {
+	return `Week ${weekNumber}: ${pageName}`;
+}
+
+function getHeadingSourceOrder(heading) {
+	return Array.from(heading.ownerDocument.querySelectorAll('h2, h3')).indexOf(heading);
+}
+
 function isReadingsHeading(text) {
 	return /Week\s*\d+\s*(Required Readings|Optional Readings?|Recommended Readings?)/i.test(text);
 }
@@ -1237,6 +1543,7 @@ function extractReadings(html) {
 			weeksByNumber.set(weekNumber, {
 				weekNumber,
 				moduleTitle: '',
+				sourceOrder: Number.MAX_SAFE_INTEGER,
 				required: [],
 				optional: [],
 				exampleProjects: [],   // NEW
@@ -1259,9 +1566,13 @@ function extractReadings(html) {
 
 		const weekBucket = getWeekBucket(weekNumber);
 		captureModuleTitleForWeek(weekBucket, h3);
+		weekBucket.sourceOrder = Math.min(weekBucket.sourceOrder, getHeadingSourceOrder(h3));
 
 		const sectionIsOptional = !isExample && /Optional|Recommended/i.test(text);
 		if (sectionIsOptional) weekBucket.hasOptional = true;
+		const destination = isExample
+			? weekBucket.exampleProjects
+			: (sectionIsOptional ? weekBucket.optional : weekBucket.required);
 
 		let currentElement = h3.nextElementSibling;
 		let currentCategoryTitle = '';
@@ -1278,14 +1589,15 @@ function extractReadings(html) {
 
 				items.forEach(item => {
 					if (!item.categoryTitle) item.categoryTitle = currentCategoryTitle;
-
-					if (isExample) {
-						weekBucket.exampleProjects.push(item);
-					} else if (sectionIsOptional) {
-						weekBucket.optional.push(item);
-					} else {
-						weekBucket.required.push(item);
-					}
+					destination.push(item);
+				});
+			} else if (
+				currentElement.tagName === 'P' &&
+				normalizeText(currentElement.textContent)
+			) {
+				destination.push({
+					contentType: 'standaloneHtml',
+					html: currentElement.outerHTML
 				});
 			}
 
@@ -1333,6 +1645,14 @@ function renderReadingsItem(item, options = {}) {
 	return html;
 }
 
+function renderReadingsContentBlock(block, options = {}) {
+	if (block.contentType === 'standaloneHtml') {
+		return block.html || '';
+	}
+
+	return renderReadingsItem(block, options);
+}
+
 function renderMultimediaItem(item, options = {}) {
 	const focusQuestionIconURL = options.focusQuestionIconURL || '';
 	const showFocusQuestions =
@@ -1377,6 +1697,14 @@ function renderMultimediaItem(item, options = {}) {
 
 	return html;
 }	
+
+function renderMultimediaContentBlock(block, options = {}) {
+	if (block.contentType === 'standaloneHtml') {
+		return block.html || '';
+	}
+
+	return renderMultimediaItem(block, options);
+}
 	
 function extractMultimedia(html) {
 	const parser = new DOMParser();
@@ -1389,6 +1717,7 @@ function extractMultimedia(html) {
 			weeksByNumber.set(weekNumber, {
 				weekNumber,
 				moduleTitle: '',
+				sourceOrder: Number.MAX_SAFE_INTEGER,
 				required: [],
 				optional: [],
 				hasOptionalMM: false
@@ -1408,9 +1737,13 @@ function extractMultimedia(html) {
 
 		const weekBucket = getWeekBucket(weekNumber);
 		captureModuleTitleForWeek(weekBucket, h3);
+		weekBucket.sourceOrder = Math.min(weekBucket.sourceOrder, getHeadingSourceOrder(h3));
 
 		const sectionIsOptional = /Optional|Recommended/i.test(text);
 		if (sectionIsOptional) weekBucket.hasOptionalMM = true;
+		const destination = sectionIsOptional
+			? weekBucket.optional
+			: weekBucket.required;
 
 		let currentElement = h3.nextElementSibling;
 		let currentCategoryTitle = '';
@@ -1427,12 +1760,15 @@ function extractMultimedia(html) {
 
 				items.forEach(item => {
 					if (!item.categoryTitle) item.categoryTitle = currentCategoryTitle;
-
-					if (sectionIsOptional) {
-						weekBucket.optional.push(item);
-					} else {
-						weekBucket.required.push(item);
-					}
+					destination.push(item);
+				});
+			} else if (
+				currentElement.tagName === 'P' &&
+				normalizeText(currentElement.textContent)
+			) {
+				destination.push({
+					contentType: 'standaloneHtml',
+					html: currentElement.outerHTML
 				});
 			}
 
@@ -1496,6 +1832,7 @@ function extractDiscussion(html) {
 		}
 
 		weekBucket.discussions.push({
+			sourceOrder: getHeadingSourceOrder(h3),
 			title: normalizeText(text)
 				.replace(/^\s*Week\s*\d+\s*/i, '')
 				.replace(/\s*Discussion\s*$/i, '')
@@ -1542,6 +1879,7 @@ function extractAssignment(html) {
 		const extracted = extractTitleAndContentAfterAssignmentHeading(h3);
 
 		weekBucket.assignments.push({
+			sourceOrder: getHeadingSourceOrder(h3),
 			title: extracted.title || 'Assignment',
 			contentHtml: extracted.contentHtml
 		});
@@ -1608,6 +1946,7 @@ function extractFinalAssessment(html) {
 		}
 
 		weekBucket.finalAssessments.push({
+			sourceOrder: getHeadingSourceOrder(heading),
 			title: title || 'Final Assessment',
 			contentHtml: parts.join('\n')
 		});
@@ -1651,6 +1990,7 @@ function extractActivity(html) {
 		const extracted = extractTitleAndContentAfterAssignmentHeading(h3);
 
 		weekBucket.activities.push({
+			sourceOrder: getHeadingSourceOrder(h3),
 			title: extracted.title || 'Activity',
 			contentHtml: extracted.contentHtml
 		});
@@ -1659,6 +1999,53 @@ function extractActivity(html) {
 	return {
 		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber),
 		baseUrl: ''
+	};
+}
+
+function extractKeyConceptsVideo(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const weeksByNumber = new Map();
+
+	function getWeekBucket(weekNumber) {
+		if (!weeksByNumber.has(weekNumber)) {
+			weeksByNumber.set(weekNumber, {
+				weekNumber,
+				moduleTitle: '',
+				keyConceptVideos: []
+			});
+		}
+		return weeksByNumber.get(weekNumber);
+	}
+
+	const h3Sections = Array.from(doc.querySelectorAll('h3'));
+
+	h3Sections.forEach(h3 => {
+		const text = normalizeText(h3.textContent || '');
+		if (!/^Week\s*\d+\s*[:\-–—]?\s*Key Concepts Video\s*$/i.test(text)) return;
+
+		const weekNumber = getWeekNumberFromHeading(text);
+		if (weekNumber == null) return;
+
+		const weekBucket = getWeekBucket(weekNumber);
+		captureModuleTitleForWeek(weekBucket, h3);
+
+		let currentElement = h3.nextElementSibling;
+		const contentParts = [];
+
+		while (currentElement && currentElement.tagName !== 'H2' && currentElement.tagName !== 'H3') {
+			contentParts.push(currentElement.outerHTML);
+			currentElement = currentElement.nextElementSibling;
+		}
+
+		weekBucket.keyConceptVideos.push({
+			sourceOrder: getHeadingSourceOrder(h3),
+			contentHtml: contentParts.join('\n')
+		});
+	});
+
+	return {
+		weeks: Array.from(weeksByNumber.values()).sort((a, b) => a.weekNumber - b.weekNumber)
 	};
 }
 	
@@ -1673,6 +2060,7 @@ function extractOverviewOutcomes(html) {
 			weeksByNumber.set(weekNumber, {
 				weekNumber,
 				moduleTitle: '',
+				sourceOrder: Number.MAX_SAFE_INTEGER,
 				overviewHtml: '',
 				outcomesHtml: ''
 			});
@@ -1697,6 +2085,7 @@ function extractOverviewOutcomes(html) {
 
 		const weekBucket = getWeekBucket(weekNumber);
 		captureModuleTitleForWeek(weekBucket, h3);
+		weekBucket.sourceOrder = Math.min(weekBucket.sourceOrder, getHeadingSourceOrder(h3));
 
 		let currentElement = h3.nextElementSibling;
 		const parts = [];
@@ -1870,7 +2259,7 @@ function extractVariablesFromHTML(liElement, h3Element) {
 			citation.match(/\[([^\]]+)\]/);
 
 		if (bracketMatch) {
-			headingPrefix = bracketMatch[1] + ':';
+			headingPrefix = capitalizeAllWords(bracketMatch[1].trim()) + ':';
 		}
 	}
 
@@ -1907,23 +2296,12 @@ function extractVariablesFromHTML(liElement, h3Element) {
 			timestampMatch[1].replace(/\s/g, '');
 	}
 
-	if (isMultimedia) {
-		if (/Video/i.test(headingPrefix)) {
-			additionalContent =
-				`(${timestamp}, <a href="#" aria-label="${readingTitle} Video Transcript">Transcript</a>)`;
-		} else if (/Audio/i.test(headingPrefix)) {
-			additionalContent =
-				`(${timestamp}, <a href="#" aria-label="${readingTitle} Audio Transcript">Audio Transcript</a>)`;
-		} else if (/Podcast/i.test(headingPrefix)) {
-			additionalContent =
-				`(${timestamp}, <a href="#" aria-label="${readingTitle} Podcast Transcript">Podcast Transcript</a>)`;
-		} else if (/Interactive multimedia/i.test(headingPrefix)) {
-			additionalContent =
-				`(${timestamp}, <a href="#" aria-label="${readingTitle} Interactive Transcript">Transcript</a>)`;
-		} else if (/Multimedia case/i.test(headingPrefix)) {
-			additionalContent =
-				`(${timestamp}, <a href="#" aria-label="${readingTitle} Case Transcript">Transcript</a>)`;
-		}
+	if (
+		isMultimedia &&
+		/(Video|Audio|Podcast|Interactive Multimedia|Multimedia Case)/i.test(headingPrefix)
+	) {
+		additionalContent =
+			`(${timestamp}, <a href="#" aria-label="${readingTitle} Transcript">Transcript</a>)`;
 	}
 
 	// Remove the runtime from the citation.
@@ -2202,12 +2580,16 @@ function generateTemplate(variables) {
 function applyTransformations(html, transformations, config) {
 	let transformedHtml = html;
 
-	// Run this FIRST
+	// Run structural section removal before headings are promoted or removed.
 	transformedHtml = transformations.removeInternalAssignmentAssetsSections(transformedHtml, config);
+	transformedHtml = transformations.removeChangeLogSections(transformedHtml, config);
 
 	// Apply the rest
 	Object.keys(transformations).forEach(transformation => {
-		if (transformation === 'removeInternalAssignmentAssetsSections') return;
+		if (
+			transformation === 'removeInternalAssignmentAssetsSections' ||
+			transformation === 'removeChangeLogSections'
+		) return;
 		transformedHtml = transformations[transformation](transformedHtml, config);
 	});
 
@@ -2277,6 +2659,9 @@ function proceedWithFormatting() {
 	const activityData = extractActivity(transformedContent);
 	console.log('activityData:', activityData);
 
+	const keyConceptsVideoData = extractKeyConceptsVideo(transformedContent);
+	console.log('keyConceptsVideoData:', keyConceptsVideoData);
+
 	const weekMap = new Map();
 
 	function getWeekSection(weekNumber) {
@@ -2303,7 +2688,8 @@ function proceedWithFormatting() {
 
 		const weekHtml = renderWeekOverviewOutcomesPage(week, config);
 		weekSection.subSections.push({
-			title: 'Overview / Learning Outcomes',
+			sourceOrder: week.sourceOrder,
+			title: getWeeklyAccordionTitle(week.weekNumber, 'Overview'),
 			content: weekHtml
 		});
 	});
@@ -2318,7 +2704,8 @@ function proceedWithFormatting() {
 		});
 
 		weekSection.subSections.push({
-			title: 'Readings',
+			sourceOrder: week.sourceOrder,
+			title: getWeeklyAccordionTitle(week.weekNumber, 'Reading Material'),
 			content: weekHtml
 		});
 	});
@@ -2332,7 +2719,8 @@ function proceedWithFormatting() {
 		});
 
 		weekSection.subSections.push({
-			title: 'Multimedia',
+			sourceOrder: week.sourceOrder,
+			title: getWeeklyAccordionTitle(week.weekNumber, 'Multimedia'),
 			content: weekHtml
 		});
 	});
@@ -2351,7 +2739,8 @@ function proceedWithFormatting() {
 			);
 
 			weekSection.subSections.push({
-				title: discussion.title || 'Discussion',
+				sourceOrder: discussion.sourceOrder,
+				title: getWeeklyAccordionTitle(week.weekNumber, 'Discussion'),
 				content: weekHtml
 			});
 		});
@@ -2367,7 +2756,11 @@ function proceedWithFormatting() {
 			const weekHtml = renderWeekAssignmentPage(assignment, config);
 
 			weekSection.subSections.push({
-				title: total > 1 ? `Assignment ${index + 1}` : 'Assignment',
+				sourceOrder: assignment.sourceOrder,
+				title: getWeeklyAccordionTitle(
+					week.weekNumber,
+					total > 1 ? `Assignment ${index + 1}` : 'Assignment'
+				),
 				content: weekHtml
 			});
 		});
@@ -2381,7 +2774,8 @@ function proceedWithFormatting() {
 			const weekHtml = renderWeekFinalAssessmentPage(finalAssessment, config);
 
 			weekSection.subSections.push({
-				title: finalAssessment.title || 'Final Assessment',
+				sourceOrder: finalAssessment.sourceOrder,
+				title: getWeeklyAccordionTitle(week.weekNumber, 'Final Assessment'),
 				content: weekHtml
 			});
 		});
@@ -2397,24 +2791,46 @@ function proceedWithFormatting() {
 			const weekHtml = renderWeekActivityPage(activity, config);
 
 			weekSection.subSections.push({
-				title: total > 1 ? `Activity ${index + 1}` : 'Activity',
+				sourceOrder: activity.sourceOrder,
+				title: getWeeklyAccordionTitle(
+					week.weekNumber,
+					total > 1 ? `Activity ${index + 1}` : 'Activity'
+				),
 				content: weekHtml
 			});
 		});
 	});
 
+	(keyConceptsVideoData.weeks || []).forEach(week => {
+		const weekSection = getWeekSection(week.weekNumber);
+		seedWeekTitle(weekSection, week.moduleTitle);
+
+		(week.keyConceptVideos || []).forEach(keyConceptsVideo => {
+			weekSection.subSections.push({
+				sourceOrder: keyConceptsVideo.sourceOrder,
+				title: getWeeklyAccordionTitle(week.weekNumber, 'Key Concepts'),
+				content: renderWeekKeyConceptsVideoPage(keyConceptsVideo)
+			});
+		});
+	});
+
 	const sections = [
-		...staticTabs,
+		...staticTabs.map(section => ({
+			...section,
+			content: removeAllAriaLevels(section.content || '')
+		})),
 		...Array.from(weekMap.values())
 			.sort((a, b) => a.weekNumber - b.weekNumber)
 			.map(section => ({
 				...section,
 				title: section.moduleTitle || `Week ${section.weekNumber}`,
 				content: removeAllAriaLevels(section.content || ''),
-				subSections: (section.subSections || []).map(subSection => ({
-					...subSection,
-					content: removeAllAriaLevels(subSection.content || '')
-				}))
+				subSections: (section.subSections || [])
+					.sort((a, b) => a.sourceOrder - b.sourceOrder)
+					.map(({ sourceOrder, ...subSection }) => ({
+						...subSection,
+						content: removeAllAriaLevels(subSection.content || '')
+					}))
 			}))
 	];
 
@@ -2437,16 +2853,22 @@ function renderWeekReadingsPage(week, config, options = {}) {
 	const focusQuestionIconURL = options.focusQuestionIconURL || '';
 	const baseUrl = options.baseUrl || '';
 
-	const requiredHtml = week.required
-		.map(item => renderReadingsItem(item, { focusQuestionIconURL }))
-		.join('\n');
+	const requiredHtml = linkCourseReadingsReferences(
+		week.required
+			.map(block => renderReadingsContentBlock(block, { focusQuestionIconURL }))
+			.join('\n')
+	);
 
 	const optionalHtml = week.optional.length
-		? week.optional.map(item => renderReadingsItem(item, { focusQuestionIconURL })).join('\n')
+		? linkCourseReadingsReferences(
+			week.optional.map(block => renderReadingsContentBlock(block, { focusQuestionIconURL })).join('\n')
+		)
 		: '';
 
 	const exampleProjectsHtml = (week.exampleProjects || []).length
-		? week.exampleProjects.map(item => renderReadingsItem(item, { focusQuestionIconURL })).join('\n')
+		? linkCourseReadingsReferences(
+			week.exampleProjects.map(block => renderReadingsContentBlock(block, { focusQuestionIconURL })).join('\n')
+		)
 		: '';
 
 	let html = config.boilerplates.weeklyReadings.content({
@@ -2467,11 +2889,11 @@ function renderWeekMultimediaPage(week, config, options = {}) {
 	const focusQuestionIconURL = options.focusQuestionIconURL || '';
 
 	const requiredHtml = week.required
-		.map(item => renderMultimediaItem(item, { focusQuestionIconURL }))
+		.map(block => renderMultimediaContentBlock(block, { focusQuestionIconURL }))
 		.join('\n');
 
 	const optionalHtml = week.optional.length
-		? week.optional.map(item => renderMultimediaItem(item, { focusQuestionIconURL })).join('\n')
+		? week.optional.map(block => renderMultimediaContentBlock(block, { focusQuestionIconURL })).join('\n')
 		: '';
 
 	let html = config.boilerplates.weeklyMultimedia.content({
@@ -2516,6 +2938,10 @@ function renderWeekActivityPage(activity, config) {
 	html = html.replace('[Title]', activity.title || 'Activity');
 	html = html.replace('<!-- Dynamic Content from "Weekly Activity" injected here -->', activity.contentHtml || '');
 	return html;
+}
+
+function renderWeekKeyConceptsVideoPage(keyConceptsVideo) {
+	return keyConceptsVideo.contentHtml || '';
 }
 	
 function renderWeekOverviewOutcomesPage(week, config) {
@@ -2573,10 +2999,10 @@ function removeMarkedElements(html) {
 function removeAllAriaLevels(html) {
 	const parser = new DOMParser();
 	const doc = parser.parseFromString(html, 'text/html');
-	const liElements = doc.querySelectorAll('li');
+	const elementsWithAriaLevel = doc.querySelectorAll('[aria-level]');
 
-	liElements.forEach(li => {
-		li.removeAttribute('aria-level');
+	elementsWithAriaLevel.forEach(element => {
+		element.removeAttribute('aria-level');
 	});
 	console.log("HTML before removing marked elements:", html); // Log before removing marked elements
 	return doc.body.innerHTML; // Return the modified HTML
@@ -2586,6 +3012,7 @@ function addEventListeners() {
 	document.getElementById('formatButton').addEventListener('click', function () {
 		openModal();
 	});
+	setupIconPreviewListeners();
 }
 
 document.addEventListener('DOMContentLoaded', addEventListeners);
@@ -2595,6 +3022,62 @@ document.addEventListener('DOMContentLoaded', addEventListeners);
 	var span = document.querySelector("#myModal .close");
 	var submitBtn = document.getElementById("submitUrl");
 	var focusQuestionIconURL = "";
+
+	function updateIconPreview(input) {
+	  const preview = document.getElementById(input.dataset.previewId);
+	  if (!preview) return;
+
+	  const previewImage = preview.querySelector('img');
+	  const previewStatus = preview.querySelector('.icon-preview-status');
+	  const requestedUrl = input.value.trim();
+
+	  preview.classList.remove('loaded', 'error');
+	  previewImage.onload = null;
+	  previewImage.onerror = null;
+	  previewImage.removeAttribute('src');
+
+	  if (!requestedUrl) {
+	    previewStatus.textContent = 'No URL entered';
+	    return;
+	  }
+
+	  previewStatus.textContent = 'Loading preview…';
+
+	  previewImage.onload = function () {
+	    if (input.value.trim() !== requestedUrl) return;
+	    preview.classList.add('loaded');
+	  };
+
+	  previewImage.onerror = function () {
+	    if (input.value.trim() !== requestedUrl) return;
+	    preview.classList.add('error');
+	    previewStatus.textContent = 'Preview unavailable';
+	  };
+
+	  previewImage.src = requestedUrl;
+	}
+
+	function refreshIconPreviews() {
+	  document.querySelectorAll('.modal-input[data-preview-id]').forEach(input => {
+	    updateIconPreview(input);
+	  });
+	}
+
+	function setupIconPreviewListeners() {
+	  document.querySelectorAll('.modal-input[data-preview-id]').forEach(input => {
+	    input.addEventListener('input', function () {
+	      clearTimeout(input.iconPreviewTimer);
+	      input.iconPreviewTimer = setTimeout(function () {
+	        updateIconPreview(input);
+	      }, 250);
+	    });
+
+	    input.addEventListener('change', function () {
+	      clearTimeout(input.iconPreviewTimer);
+	      updateIconPreview(input);
+	    });
+	  });
+	}
 
 	function openModal() {
 	  document.getElementById("overviewIconInput").value            = config.icons.weeklyOverview || "";
@@ -2611,6 +3094,7 @@ document.addEventListener('DOMContentLoaded', addEventListeners);
 
 	  document.getElementById("courseTypeError").style.display = "none";
 	  modal.style.display = "block";
+	  refreshIconPreviews();
 	}
 
 	submitBtn.onclick = function () {
