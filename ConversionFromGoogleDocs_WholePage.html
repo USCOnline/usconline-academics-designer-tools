@@ -22,6 +22,46 @@ h1, h2 {
 #formatButton {
 	margin-left: 15px;
 }
+#courseAssignmentsControls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 10px 15px 0;
+}
+#generateCourseAssignmentsButton {
+	background-color: #990000;
+	border: none;
+	border-radius: 5px;
+	color: white;
+	cursor: pointer;
+	padding: 8px 12px;
+}
+#generateCourseAssignmentsButton:disabled {
+	background-color: #999;
+	cursor: not-allowed;
+}
+#toggleCourseAssignmentsOutput {
+	background-color: #555;
+	border: none;
+	border-radius: 5px;
+	color: white;
+	cursor: pointer;
+	padding: 8px 12px;
+}
+#toggleCourseAssignmentsOutput:disabled {
+	background-color: #999;
+	cursor: not-allowed;
+}
+#courseAssignmentsStatus {
+	color: #555;
+	font-size: 0.9rem;
+}
+#courseAssignmentsOutput {
+	margin: 15px;
+}
+#courseAssignmentsCode {
+	min-height: 240px;
+}
 .contenteditable-container {
 	display: block;
 	max-height: 200px; /* Maximum height */
@@ -280,6 +320,21 @@ h1, h2 {
 	</div>
 	<div>
 		<button id="formatButton">Format Me!</button>
+	</div>
+	<div id="courseAssignmentsControls">
+		<button id="generateCourseAssignmentsButton" type="button" disabled>Generate CA Page</button>
+		<button id="toggleCourseAssignmentsOutput" type="button" disabled>Hide CA Page</button>
+		<span id="courseAssignmentsStatus" aria-live="polite">Format the document first.</span>
+	</div>
+	<div id="courseAssignmentsOutput" style="display: none;">
+		<h2>Generated Course Assignments Page</h2>
+		<div class="code-preview-container">
+			<div class="code-container">
+				<textarea id="courseAssignmentsCode" rows="12" readonly aria-label="Course Assignments Page code"></textarea>
+				<button id="copyCourseAssignmentsCode" type="button" class="copy-btn">Copy Code</button>
+			</div>
+			<div id="courseAssignmentsPreview" class="rendered-output"></div>
+		</div>
 	</div>
 	
 	<!-- Temporary Testing Output Boxes -->
@@ -1320,9 +1375,31 @@ const transformations = {
 };
 
 const noteParagraphsArray = [];
+
+let courseAssignmentsState = {
+	courseCode: '',
+	assignments: [],
+	finalAssessments: [],
+	isFormatted: false
+};
 	
 function normalizeText(text) {
 	return (text || '').replace(/\s+/g, ' ').trim();
+}
+
+function extractCourseCodeFromH1(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const courseCodePattern = /\b([A-Z]{2,8})\s*[-\u2013\u2014]?\s*(\d{3}[A-Z]?)\b/i;
+
+	for (const heading of doc.querySelectorAll('h1')) {
+		const match = normalizeText(heading.textContent).match(courseCodePattern);
+		if (match) {
+			return `${match[1].toUpperCase()} ${match[2].toUpperCase()}`;
+		}
+	}
+
+	return '';
 }
 
 function capitalizeAllWords(text) {
@@ -2624,6 +2701,136 @@ function buildAndDisplayAccordionFromPages(pageMap) {
 	outputBox.appendChild(accordion);
 	setupAccordion();
 }	
+
+function removeFirstHorizontalRule(html) {
+	return (html || '').replace(/<hr\b[^>]*\/?\s*>/i, '');
+}
+
+function instructionsSectionContainsNA(html) {
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html || '', 'text/html');
+	const instructionsHeading = Array.from(doc.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+		.find(heading => /^Instructions:?$/i.test(normalizeText(heading.textContent)));
+
+	if (!instructionsHeading) return false;
+
+	const instructionsLevel = Number(instructionsHeading.tagName.slice(1));
+	let currentElement = instructionsHeading.nextElementSibling;
+	let instructionsText = '';
+
+	while (currentElement) {
+		const headingMatch = currentElement.tagName.match(/^H([1-6])$/);
+		if (headingMatch && Number(headingMatch[1]) <= instructionsLevel) break;
+
+		instructionsText += ` ${currentElement.textContent || ''}`;
+		currentElement = currentElement.nextElementSibling;
+	}
+
+	return /\bn\s*\/\s*a\b/i.test(instructionsText);
+}
+
+function assignmentHasNAInstructions(assignment) {
+	return instructionsSectionContainsNA(renderWeekAssignmentPage(assignment, config));
+}
+
+function buildCourseAssignmentsPage(courseCode, assignments, finalAssessments) {
+	const tabs = [];
+
+	(assignments || []).forEach(week => {
+		const includedAssignments = (week.assignments || [])
+			.filter(assignment => !assignmentHasNAInstructions(assignment));
+		const total = includedAssignments.length;
+
+		includedAssignments.forEach((assignment, index) => {
+			tabs.push({
+				weekNumber: week.weekNumber,
+				sourceOrder: assignment.sourceOrder,
+				label: `Week ${week.weekNumber}: Assignment${total > 1 ? ` ${index + 1}` : ''}`,
+				content: removeFirstHorizontalRule(renderWeekAssignmentPage(assignment, config))
+			});
+		});
+	});
+
+	(finalAssessments || []).forEach(week => {
+		(week.finalAssessments || []).forEach(finalAssessment => {
+			tabs.push({
+				weekNumber: week.weekNumber,
+				sourceOrder: finalAssessment.sourceOrder,
+				label: 'Final Assessment',
+				content: removeFirstHorizontalRule(renderWeekFinalAssessmentPage(finalAssessment, config))
+			});
+		});
+	});
+
+	tabs.sort((a, b) =>
+		a.weekNumber - b.weekNumber || a.sourceOrder - b.sourceOrder
+	);
+
+	if (tabs.length === 0) return '';
+
+	let outputHTML = `
+            <div class="alert alert-info">
+                <p style="text-align: center;"><span style="font-size: 14pt;"><strong>You can view all of your assignments for ${courseCode} in the tabs below.</strong></span></p>
+            </div>
+            <p style="font-size: 12pt;">&nbsp;</p>
+            <div class="enhanceable_content tabs ui-tabs-minimal">
+                <ul>
+        `;
+
+	tabs.forEach((tab, index) => {
+		outputHTML += `<li><a href="#tabs-${index + 1}">${tab.label}</a></li>`;
+	});
+
+	outputHTML += `
+                </ul>
+        `;
+
+	tabs.forEach((tab, index) => {
+		outputHTML += `
+                <div id="tabs-${index + 1}" style="font-size: 12pt;">
+                    ${tab.content}
+                </div>
+            `;
+	});
+
+	outputHTML += `
+            </div>
+        `;
+
+	return outputHTML;
+}
+
+function refreshCourseAssignmentsAvailability() {
+	const button = document.getElementById('generateCourseAssignmentsButton');
+	const status = document.getElementById('courseAssignmentsStatus');
+	const assignmentCount = courseAssignmentsState.assignments.reduce(
+		(total, week) => total + (week.assignments || [])
+			.filter(assignment => !assignmentHasNAInstructions(assignment)).length,
+		0
+	);
+	const finalAssessmentCount = courseAssignmentsState.finalAssessments.reduce(
+		(total, week) => total + (week.finalAssessments || []).length,
+		0
+	);
+
+	button.disabled = !courseAssignmentsState.isFormatted;
+
+	if (!courseAssignmentsState.isFormatted) {
+		status.textContent = 'Format the document first.';
+		return;
+	}
+
+	const omittedCount = courseAssignmentsState.assignments.reduce(
+		(total, week) => total + (week.assignments || [])
+			.filter(assignment => assignmentHasNAInstructions(assignment)).length,
+		0
+	);
+	const includedCount = assignmentCount + finalAssessmentCount;
+	status.textContent = `${includedCount} item${includedCount === 1 ? '' : 's'} ready` +
+		(omittedCount ? `; ${omittedCount} n/a assignment${omittedCount === 1 ? '' : 's'} omitted.` : '.') +
+		(courseAssignmentsState.courseCode ? '' : ' Course code not found in a Heading 1.');
+}
+
 //Using this	
 function proceedWithFormatting() {
 	const inputContent = document.getElementById('input').innerHTML;
@@ -2655,6 +2862,17 @@ function proceedWithFormatting() {
 	
 	const finalAssessmentData = extractFinalAssessment(transformedContent);
 	console.log('finalAssessmentData:', finalAssessmentData);
+
+	courseAssignmentsState = {
+		courseCode: extractCourseCodeFromH1(inputContent),
+		assignments: assignmentData.weeks || [],
+		finalAssessments: finalAssessmentData.weeks || [],
+		isFormatted: true
+	};
+	refreshCourseAssignmentsAvailability();
+	document.getElementById('courseAssignmentsOutput').style.display = 'none';
+	document.getElementById('toggleCourseAssignmentsOutput').disabled = true;
+	document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide Generated Page';
 
 	const activityData = extractActivity(transformedContent);
 	console.log('activityData:', activityData);
@@ -3012,6 +3230,39 @@ function addEventListeners() {
 	document.getElementById('formatButton').addEventListener('click', function () {
 		openModal();
 	});
+	document.getElementById('generateCourseAssignmentsButton').addEventListener('click', function () {
+		if (!courseAssignmentsState.courseCode) {
+			alert('A course code could not be found in a Heading 1. Please confirm that the input includes a course code such as "HRM 525" in an H1 heading.');
+			return;
+		}
+
+		const outputHTML = buildCourseAssignmentsPage(
+			courseAssignmentsState.courseCode,
+			courseAssignmentsState.assignments,
+			courseAssignmentsState.finalAssessments
+		);
+
+		if (!outputHTML) {
+			alert('No weekly assignments or final assessment were found. Assignments marked n/a under Instructions are not included.');
+			return;
+		}
+
+		document.getElementById('courseAssignmentsCode').value = outputHTML;
+		document.getElementById('courseAssignmentsPreview').innerHTML = outputHTML;
+		document.getElementById('courseAssignmentsOutput').style.display = 'block';
+		document.getElementById('toggleCourseAssignmentsOutput').disabled = false;
+		document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide Generated Page';
+	});
+	document.getElementById('toggleCourseAssignmentsOutput').addEventListener('click', function () {
+		const output = document.getElementById('courseAssignmentsOutput');
+		const shouldShow = output.style.display === 'none';
+		output.style.display = shouldShow ? 'block' : 'none';
+		this.textContent = shouldShow ? 'Hide Generated Page' : 'Show Generated Page';
+	});
+	addCopyFunctionality(
+		document.getElementById('copyCourseAssignmentsCode'),
+		document.getElementById('courseAssignmentsCode')
+	);
 	setupIconPreviewListeners();
 }
 
