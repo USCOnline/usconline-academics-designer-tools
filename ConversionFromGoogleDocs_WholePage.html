@@ -19,8 +19,35 @@ h1, h2 {
 #instructions {
 	margin: 15px;
 }
-#formatButton {
+#instructions summary {
+	color: #990000;
+	cursor: pointer;
+	font-size: 1.1rem;
+	font-weight: 700;
+	padding: 8px 0;
+}
+#instructions summary:hover,
+#instructions summary:focus {
+	text-decoration: underline;
+}
+#buildControls {
+	display: flex;
+	align-items: center;
+	gap: 10px;
 	margin-left: 15px;
+}
+#clearCpgButton {
+	background-color: #555;
+	border: none;
+	border-radius: 4px;
+	color: white;
+	cursor: pointer;
+	padding: 6px 10px;
+}
+#clearCpgNote {
+	color: #555;
+	font-size: 0.9rem;
+	margin: 6px 15px 0;
 }
 #courseAssignmentsControls {
 	display: flex;
@@ -55,6 +82,9 @@ h1, h2 {
 #courseAssignmentsStatus {
 	color: #555;
 	font-size: 0.9rem;
+}
+#courseAssignmentsNote {
+	margin: 8px 15px 0;
 }
 #courseAssignmentsOutput {
 	margin: 15px;
@@ -281,8 +311,8 @@ h1, h2 {
 <body>
 <div id="userFacing">
 	<h1 style="font-size:18pt;">CPG to Canvas Converter - Whole Page</h1>
-	<div id="instructions">
-		<p><strong>Instructions:</strong></p>
+	<details id="instructions">
+		<summary>Instructions</summary>
 		<ol>
 			<li>Open your CPG in Google Docs.</li>
 			<li>Copy the entire document. </li>
@@ -312,20 +342,29 @@ h1, h2 {
 		<p>There may be edge cases where the content of the CPG falls outside the expected patterns that this program relies on. Therefore, it is <em>highly</em> recommended that you check the content in Canvas carefully to ensure it matches the CPG.</p>
 		<p>It would be helpful to keep a log of instances where the output does not match expectations. This will help improve the program to ensure the most consistent experience possible. </p>
 		<p><strong>Thank you!</strong></p>
-	</div>
+	</details>
 	<div id="inputArea">
 		<div class="contenteditable-container">
 			<div id="input" class="contenteditable" contenteditable="true" aria-label="Input Box"></div>
 		</div>
 	</div>
-	<div>
+	<div id="buildControls">
 		<button id="formatButton">Format Me!</button>
+		<button id="clearCpgButton" type="button">Clear CPG (Keep Icons)</button>
 	</div>
+	<p id="clearCpgNote"><strong>Note:</strong> Clear CPG removes the current CPG and generated output, but keeps the icon URLs and course type. Reload this page before starting a new course.</p>
+
+	<!-- Temporary Testing Output Boxes -->
+	<textarea style="display: none;" id="initialHtmlOutput" rows="15" aria-label="Initial HTML Output Box"></textarea>
+	<textarea style="display: none;" id="testOutput" rows="15" aria-label="Test Output Box"></textarea>
+	<!-- Output for Templated Items -->
+	<div id="accordionOutputBox"></div>
 	<div id="courseAssignmentsControls">
 		<button id="generateCourseAssignmentsButton" type="button" disabled>Generate CA Page</button>
 		<button id="toggleCourseAssignmentsOutput" type="button" disabled>Hide CA Page</button>
 		<span id="courseAssignmentsStatus" aria-live="polite">Format the document first.</span>
 	</div>
+	<p id="courseAssignmentsNote"><strong>Note:</strong> If you made any changes to assignments during the build, either transfer those changes to the CA page, or use the standalone <a href="https://usconline.github.io/usconline-academics-designer-tools/CourseAssignmentsGenerator.html" target="_blank" rel="noopener">CA Page Generator</a> to re-generate the page.</p>
 	<div id="courseAssignmentsOutput" style="display: none;">
 		<h2>Generated Course Assignments Page</h2>
 		<div class="code-preview-container">
@@ -336,12 +375,6 @@ h1, h2 {
 			<div id="courseAssignmentsPreview" class="rendered-output"></div>
 		</div>
 	</div>
-	
-	<!-- Temporary Testing Output Boxes -->
-	<textarea style="display: none;" id="initialHtmlOutput" rows="15" aria-label="Initial HTML Output Box"></textarea>
-	<textarea style="display: none;" id="testOutput" rows="15" aria-label="Test Output Box"></textarea>
-	<!-- Output for Templated Items -->
-	<div id="accordionOutputBox"></div>
 	<div style="display: none;" id="renderedTestOutput" class="rendered-content"><strong>Test Visual Output</strong></div>
 	
 	<!-- The Modal -->
@@ -2726,7 +2759,8 @@ function instructionsSectionContainsNA(html) {
 		currentElement = currentElement.nextElementSibling;
 	}
 
-	return /\bn\s*\/\s*a\b/i.test(instructionsText);
+	const normalizedInstructionsText = normalizeText(instructionsText);
+	return /^n\s*\/\s*a[.!]?$/i.test(normalizedInstructionsText);
 }
 
 function assignmentHasNAInstructions(assignment) {
@@ -2831,8 +2865,37 @@ function refreshCourseAssignmentsAvailability() {
 		(courseAssignmentsState.courseCode ? '' : ' Course code not found in a Heading 1.');
 }
 
+function clearGeneratedBuildContent() {
+	document.getElementById('initialHtmlOutput').value = '';
+	document.getElementById('testOutput').value = '';
+	document.getElementById('debugOutput').value = '';
+	document.getElementById('renderedTestOutput').innerHTML = '';
+	document.getElementById('accordionOutputBox').innerHTML = '';
+	document.getElementById('courseAssignmentsCode').value = '';
+	document.getElementById('courseAssignmentsPreview').innerHTML = '';
+	document.getElementById('courseAssignmentsOutput').style.display = 'none';
+	document.getElementById('toggleCourseAssignmentsOutput').disabled = true;
+	document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide CA Page';
+}
+
+function resetCurrentBuild() {
+	noteParagraphsArray.length = 0;
+	courseAssignmentsState = {
+		courseCode: '',
+		assignments: [],
+		finalAssessments: [],
+		isFormatted: false
+	};
+	clearGeneratedBuildContent();
+	refreshCourseAssignmentsAvailability();
+}
+
 //Using this	
 function proceedWithFormatting() {
+	// Remove data retained by the previous build while preserving config.icons and config.courseType.
+	noteParagraphsArray.length = 0;
+	clearGeneratedBuildContent();
+
 	const inputContent = document.getElementById('input').innerHTML;
 	document.getElementById('initialHtmlOutput').value = inputContent;
 
@@ -2870,9 +2933,6 @@ function proceedWithFormatting() {
 		isFormatted: true
 	};
 	refreshCourseAssignmentsAvailability();
-	document.getElementById('courseAssignmentsOutput').style.display = 'none';
-	document.getElementById('toggleCourseAssignmentsOutput').disabled = true;
-	document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide Generated Page';
 
 	const activityData = extractActivity(transformedContent);
 	console.log('activityData:', activityData);
@@ -3230,6 +3290,16 @@ function addEventListeners() {
 	document.getElementById('formatButton').addEventListener('click', function () {
 		openModal();
 	});
+	document.getElementById('clearCpgButton').addEventListener('click', function () {
+		const shouldClear = window.confirm(
+			'Clear the current CPG and all generated output? Your icon URLs and course type will be kept. Reload the page if you are starting a new course.'
+		);
+		if (!shouldClear) return;
+
+		document.getElementById('input').innerHTML = '';
+		resetCurrentBuild();
+		document.getElementById('input').focus();
+	});
 	document.getElementById('generateCourseAssignmentsButton').addEventListener('click', function () {
 		if (!courseAssignmentsState.courseCode) {
 			alert('A course code could not be found in a Heading 1. Please confirm that the input includes a course code such as "HRM 525" in an H1 heading.');
@@ -3251,13 +3321,13 @@ function addEventListeners() {
 		document.getElementById('courseAssignmentsPreview').innerHTML = outputHTML;
 		document.getElementById('courseAssignmentsOutput').style.display = 'block';
 		document.getElementById('toggleCourseAssignmentsOutput').disabled = false;
-		document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide Generated Page';
+		document.getElementById('toggleCourseAssignmentsOutput').textContent = 'Hide CA Page';
 	});
 	document.getElementById('toggleCourseAssignmentsOutput').addEventListener('click', function () {
 		const output = document.getElementById('courseAssignmentsOutput');
 		const shouldShow = output.style.display === 'none';
 		output.style.display = shouldShow ? 'block' : 'none';
-		this.textContent = shouldShow ? 'Hide Generated Page' : 'Show Generated Page';
+		this.textContent = shouldShow ? 'Hide CA Page' : 'Show CA Page';
 	});
 	addCopyFunctionality(
 		document.getElementById('copyCourseAssignmentsCode'),
