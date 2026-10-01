@@ -2780,7 +2780,9 @@ function buildCourseAssignmentsPage(courseCode, assignments, finalAssessments) {
 				weekNumber: week.weekNumber,
 				sourceOrder: assignment.sourceOrder,
 				label: `Week ${week.weekNumber}: Assignment${total > 1 ? ` ${index + 1}` : ''}`,
-				content: removeFirstHorizontalRule(renderWeekAssignmentPage(assignment, config))
+				content: removeAllAriaLevels(
+					removeFirstHorizontalRule(renderWeekAssignmentPage(assignment, config))
+				)
 			});
 		});
 	});
@@ -2791,7 +2793,9 @@ function buildCourseAssignmentsPage(courseCode, assignments, finalAssessments) {
 				weekNumber: week.weekNumber,
 				sourceOrder: finalAssessment.sourceOrder,
 				label: 'Final Assessment',
-				content: removeFirstHorizontalRule(renderWeekFinalAssessmentPage(finalAssessment, config))
+				content: removeAllAriaLevels(
+					removeFirstHorizontalRule(renderWeekFinalAssessmentPage(finalAssessment, config))
+				)
 			});
 		});
 	});
