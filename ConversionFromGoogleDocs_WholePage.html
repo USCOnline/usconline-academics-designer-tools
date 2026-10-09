@@ -131,6 +131,15 @@ h1, h2 {
 	max-width: 960px;
 	box-sizing: border-box;
 }
+.course-type-options label {
+	display: block;
+	margin: 8px 0;
+}
+.course-type-divider {
+	margin: 18px 0;
+	border: 0;
+	border-top: 1px solid #ccc;
+}
 .modal-input {
 	width: 100%;
 	height: 2rem;
@@ -321,7 +330,7 @@ h1, h2 {
 			</ul>
 			<li>Paste the content into the box below.</li>
 			<li>Press the &quot;Format Me!&quot; button.</li>
-			<li>Choose whether this is a BVC or USCOnline course. You must make a selection.</li>
+			<li>Choose the appropriate program group. You must make a selection.</li>
 			<li>Enter your course's icon URLs* (from the "Icon Reference - DELETE AFTER BUILD" page in the Start Here Module) and select &quot;Submit.&quot;
 				<ul>
 					<li>You can get these URLs by right-clicking the icon in Canvas and selecting &quot;Copy image address&quot;</li>
@@ -381,16 +390,21 @@ h1, h2 {
 	
 	<div id="myModal" class="modal">
 		<div class="modal-content"> <span class="close">&times;</span>
-			<h2>Is this a BVC or USCOnline Course?</h2>
-			<div>
+			<h2>Which program is your course?</h2>
+			<!--Groups: BVC & MSM (AAN, CJ, EM, HRM, HT, LIM, PJMT, SMGT); MCM (CMGT); DMM & PRSM (DMM, PRSM)-->
+			<div class="course-type-options">
 				<label>
 					<input type="radio" name="courseType" value="BVC">
-					BVC</label>
+					BVC &amp; MSM</label>
 				<label>
 					<input type="radio" name="courseType" value="USCO">
-					USCO</label>
-				<p id="courseTypeError" style="color: red; display: none; margin-top: 8px;"> Please select BVC or USCO before continuing. </p>
+					MCM</label>
+				<label>
+					<input type="radio" name="courseType" value="ANN">
+					DMM &amp; PRSM</label>
+				<p id="courseTypeError" style="color: red; display: none; margin-top: 8px;"> Please select your program group before continuing. </p>
 			</div>
+			<hr class="course-type-divider" />
 			<div class="icon-entry-grid">
 				<h2>Enter Your Icon URLs</h2>
 				<h3 class="icon-preview-heading">Preview</h3>
@@ -487,7 +501,7 @@ const config = {
 		removeH3Sections: /Week\s*\d+\s*:?\s*(Topics)/i,
 		removeH2Sections: /\s*(Course Description|Course Topics|Course Preparation)/i,
 		noteParagraph: /<p>(<strong>\*<\/strong>|<strong><em>\*<\/em><\/strong>|<em><strong>\*<\/strong><\/em>|\*?)?(<em>\*?Note:\s?<\/em>|<em>\*?Note<\/em>:|\*Note:|Note:)\s*(.*)<\/p>/i,
-		readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia|Example Projects?)/i,
+		readingsMultimediaH3: /^\s*Week\s*\d+\s*(Required Readings|Multimedia|Optional Readings?|Additional Readings?|Optional Multimedia|Recommended Readings?|Recommended Multimedia|Example Projects?)/i,
 		resourcesH3: /^\s*Week\s*\d+\s*(Resource|Resources)/i,
 
 	},
@@ -552,7 +566,7 @@ config.boilerplates = {
   weeklyReadings: {
 	icon: "weeklyReadings",
 	content: (options = {}) => {
-		const { weekNumber, hasOptional, hasExampleProjects } = options;
+		const { weekNumber, supplementalReadingsHtml = '', hasExampleProjects } = options;
 
 		const courseReadingsUrl = getCourseReadingsUrl();
 
@@ -573,15 +587,7 @@ config.boilerplates = {
 
 			<!-- REQUIRED_READINGS -->
 
-			${hasOptional ? `
-				<h2 style="color: #990000;">
-					<img src="${config.icons.weeklyReadings}" alt="" width="75" height="75"
-						data-api-endpoint="${config.icons.weeklyReadings}"
-						data-api-returntype="File" data-decorative="true" />
-					<strong>Optional Readings</strong>
-				</h2>
-				<!-- OPTIONAL_READINGS -->
-			` : ''}
+			${supplementalReadingsHtml}
 
 			${hasExampleProjects ? `
 				<h2 style="color: #990000;">
@@ -772,6 +778,14 @@ function getDueDates(courseType) {
 			discussion: `<p>Initial post due by 11:55pm PT on Thursday<br />Replies due by 11:55pm PT on Sunday</p>`,
 			assignment: `<p>Sunday, 11:55pm PT</p>`,
 			finalAssessment: `<p>Monday by 11:55pm PT</p>` // 👈 NEW
+		};
+	}
+
+	if (courseType === 'ANN') {
+		return {
+			discussion: `<p>Initial post due by 11:55pm PT on Wednesday<br />Replies due by 11:55pm PT on Sunday</p>`,
+			assignment: `<p>Sunday, 11:55pm PT</p>`,
+			finalAssessment: `<p>Monday by 11:55pm PT</p>`
 		};
 	}
 
@@ -1605,7 +1619,7 @@ function getHeadingSourceOrder(heading) {
 }
 
 function isReadingsHeading(text) {
-	return /Week\s*\d+\s*(Required Readings|Optional Readings?|Recommended Readings?)/i.test(text);
+	return /Week\s*\d+\s*(Required Readings|Optional Readings?|Additional Readings?|Recommended Readings?)/i.test(text);
 }
 
 function isMultimediaHeading(text) {
@@ -1656,8 +1670,10 @@ function extractReadings(html) {
 				sourceOrder: Number.MAX_SAFE_INTEGER,
 				required: [],
 				optional: [],
-				exampleProjects: [],   // NEW
-				hasOptional: false
+				additional: [],
+				optionalSourceOrder: Number.MAX_SAFE_INTEGER,
+				additionalSourceOrder: Number.MAX_SAFE_INTEGER,
+				exampleProjects: []   // NEW
 			});
 		}
 		return weeksByNumber.get(weekNumber);
@@ -1678,11 +1694,20 @@ function extractReadings(html) {
 		captureModuleTitleForWeek(weekBucket, h3);
 		weekBucket.sourceOrder = Math.min(weekBucket.sourceOrder, getHeadingSourceOrder(h3));
 
-		const sectionIsOptional = !isExample && /Optional|Recommended/i.test(text);
-		if (sectionIsOptional) weekBucket.hasOptional = true;
+		const sectionIsAdditional = !isExample && /Additional/i.test(text);
+		const sectionIsOptional = !isExample && !sectionIsAdditional && /Optional|Recommended/i.test(text);
+		const headingSourceOrder = getHeadingSourceOrder(h3);
+		if (sectionIsOptional) {
+			weekBucket.optionalSourceOrder = Math.min(weekBucket.optionalSourceOrder, headingSourceOrder);
+		}
+		if (sectionIsAdditional) {
+			weekBucket.additionalSourceOrder = Math.min(weekBucket.additionalSourceOrder, headingSourceOrder);
+		}
 		const destination = isExample
 			? weekBucket.exampleProjects
-			: (sectionIsOptional ? weekBucket.optional : weekBucket.required);
+			: (sectionIsAdditional
+				? weekBucket.additional
+				: (sectionIsOptional ? weekBucket.optional : weekBucket.required));
 
 		let currentElement = h3.nextElementSibling;
 		let currentCategoryTitle = '';
@@ -1694,7 +1719,7 @@ function extractReadings(html) {
 				const items = extractSectionItemsFromList(
 					currentElement,
 					h3,
-					isExample ? 'example' : (sectionIsOptional ? 'optional' : 'required')
+					isExample ? 'example' : (sectionIsAdditional ? 'additional' : (sectionIsOptional ? 'optional' : 'required'))
 				);
 
 				items.forEach(item => {
@@ -3141,11 +3166,38 @@ function renderWeekReadingsPage(week, config, options = {}) {
 			.join('\n')
 	);
 
-	const optionalHtml = week.optional.length
-		? linkCourseReadingsReferences(
-			week.optional.map(block => renderReadingsContentBlock(block, { focusQuestionIconURL })).join('\n')
-		)
-		: '';
+	const supplementalReadingsHtml = [
+		{
+			title: 'Optional Readings',
+			sourceOrder: week.optionalSourceOrder,
+			blocks: week.optional || []
+		},
+		{
+			title: 'Additional Readings',
+			sourceOrder: week.additionalSourceOrder,
+			blocks: week.additional || []
+		}
+	]
+		.filter(section => section.blocks.length > 0)
+		.sort((a, b) => a.sourceOrder - b.sourceOrder)
+		.map(section => {
+			const sectionHtml = linkCourseReadingsReferences(
+				section.blocks
+					.map(block => renderReadingsContentBlock(block, { focusQuestionIconURL }))
+					.join('\n')
+			);
+
+			return `
+				<h2 style="color: #990000;">
+					<img src="${config.icons.weeklyReadings}" alt="" width="75" height="75"
+						data-api-endpoint="${config.icons.weeklyReadings}"
+						data-api-returntype="File" data-decorative="true" />
+					<strong>${section.title}</strong>
+				</h2>
+				${sectionHtml}
+			`;
+		})
+		.join('\n');
 
 	const exampleProjectsHtml = (week.exampleProjects || []).length
 		? linkCourseReadingsReferences(
@@ -3155,13 +3207,12 @@ function renderWeekReadingsPage(week, config, options = {}) {
 
 	let html = config.boilerplates.weeklyReadings.content({
 		weekNumber: week.weekNumber,
-		hasOptional: week.optional.length > 0,
+		supplementalReadingsHtml,
 		hasExampleProjects: (week.exampleProjects || []).length > 0,
 		baseUrl
 	});
 
 	html = html.replace('<!-- REQUIRED_READINGS -->', requiredHtml);
-	html = html.replace('<!-- OPTIONAL_READINGS -->', optionalHtml);
 	html = html.replace('<!-- EXAMPLE_PROJECTS -->', exampleProjectsHtml);
 
 	return html;
