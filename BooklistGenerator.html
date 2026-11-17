@@ -440,6 +440,42 @@ textarea {
 	    return transformedHtml;
 	}
 	
+	// Use the date and italicized source as boundaries when a title has no link.
+	function extractUnlinkedTitle(pElement) {
+		const firstEm = pElement.querySelector('em');
+		if (!firstEm) return null;
+
+		const beforeEm = pElement.ownerDocument.createRange();
+		beforeEm.selectNodeContents(pElement);
+		beforeEm.setEndBefore(firstEm);
+		const prefix = beforeEm.toString();
+		const dateMatch = prefix.match(/\((?:\d{4}[a-z]?|n\.d\.)(?:,\s*[^)]+)?\)\s*\.\s*/i);
+		if (!dateMatch) return null;
+
+		const beforeSource = prefix.slice(dateMatch.index + dateMatch[0].length).trim();
+		let title;
+		if (!beforeSource) {
+			// A whole book or report has its own title in italics immediately after the date.
+			title = firstEm.textContent.trim();
+		} else {
+			// For chapters, exclude "In" and any editor names before the italicized book.
+			const chapterTitle = beforeSource.match(/^([\s\S]+[.!?])\s+In(?:\s+[\s\S]*)?$/i);
+			if (chapterTitle) {
+				title = chapterTitle[1];
+			} else if (/[.!?]$/.test(beforeSource)) {
+				// For journal articles, the complete title precedes the italicized journal.
+				title = beforeSource;
+			} else {
+				return null; // An italic phrase inside a title is not a reliable boundary.
+			}
+		}
+
+		title = title.replace(/\.$/, '').trim();
+		if (!title) return null;
+		const section = prefix.match(/^\s*((?:Chapter|Section|Part|Unit)\s+\d+(?:\.\d+)*\s*(?::|[-–—]))\s*/i);
+		return section ? section[1].trim() + ' ' + title : title;
+	}
+
 	// Function to extract components from APA 7 references
 	function parseAPAReference(h4Element, pElement) {
 		// Initialize an object to store the extracted data
@@ -500,11 +536,17 @@ textarea {
 			if (titleLinkElement) {
 				extractedData.articleChapterTitle = titleLinkElement.textContent.trim();
 			} else {
-				console.warn("No hyperlink found for title extraction.");
+				const unlinkedTitle = extractUnlinkedTitle(pElement);
+				if (unlinkedTitle) {
+					extractedData.articleChapterTitle = unlinkedTitle;
+				} else {
+					console.warn("No reliable title boundary found for unlinked reference.");
+				}
 			}
 
 			// Extract authors (everything before the first open parenthesis "(")
-			const authorMatch = pText.match(/^(.*?)\s*\(/);
+			const authorText = pText.replace(/^(?:Chapter|Section|Part|Unit)\s+\d+(?:\.\d+)*\s*(?::|[-–—])\s*/i, '');
+			const authorMatch = authorText.match(/^(.*?)\s*\(/);
 			if (authorMatch) {
 				let authors = authorMatch[1].trim();
 
@@ -539,8 +581,8 @@ textarea {
 				let italicizedText = emElement.textContent.trim();
 				console.log("Extracted italicizedText (before trimming volume):", italicizedText); // Debug log
 
-				// Extract volume number (comma followed by numbers)
-				const volumeMatch = italicizedText.match(/,\s*(\d+)$/); // Match volume number
+				// Extract volume number, allowing a trailing comma before article details
+				const volumeMatch = italicizedText.match(/,\s*(\d+)\s*,?$/); // Match volume number
 				if (volumeMatch) {
 					extractedData.journalVolume = volumeMatch[1];
 					console.log("Extracted journalVolume:", extractedData.journalVolume); // Debug log
@@ -562,39 +604,38 @@ textarea {
 					}
 
 					// Remove the volume from italicizedText after extracting issue
-					italicizedText = italicizedText.replace(/,\s*\d+$/, '').trim();
+					italicizedText = italicizedText.slice(0, volumeMatch.index).trim();
 				}
 				console.log("Italicized text (after removing volume):", italicizedText); // Debug log
 
-				// Check if the <em> tag is part of a hyperlink
-				if (emElement.closest('a')) {
-					// Extract the remaining text after the italicized text
-					const indexAfterItalicized = pText.indexOf(italicizedText) + italicizedText.length;
-					let remainingText = pText.slice(indexAfterItalicized).trim();
-					console.log("Debug: remainingText before URL check:", remainingText); // Debug log
-
-					// Clean leading punctuation and spaces
-					remainingText = remainingText.replace(/^[.\s!?]+/, '').trim();
-					console.log("Debug: Cleaned remainingText for URL check:", remainingText); // Debug log
-
-					// Check if remaining text starts with a URL
-					if (/^https?:\/\//.test(remainingText)) {
-						console.log("Debug: Detected URL in remainingText:", remainingText); // Debug log
+				// An italicized source follows a separate article/chapter title. An italicized
+				// work title follows the date directly, regardless of hyperlink formatting.
+				extractedData.journalOrBookTitle = italicizedText;
+				const beforeEm = pElement.ownerDocument.createRange();
+				beforeEm.selectNodeContents(pElement);
+				beforeEm.setEndBefore(emElement);
+				const prefix = beforeEm.toString();
+				const dateMatch = prefix.match(/\((?:\d{4}[a-z]?|n\.d\.)(?:,\s*[^)]+)?\)\s*\.\s*/i);
+				const textAfterDate = dateMatch ? prefix.slice(dateMatch.index + dateMatch[0].length).trim() : null;
+				if (!volumeMatch && textAfterDate === '') {
+					const afterEm = pElement.ownerDocument.createRange();
+					afterEm.selectNodeContents(pElement);
+					afterEm.setStartAfter(emElement);
+					let remainingText = afterEm.toString().replace(/^[.\s!?]+/, '').trim();
+					// Skip edition details and case identifiers before the source organization.
+					remainingText = remainingText
+						.replace(/^\([^)]*\bed(?:ition)?\.[^)]*\)\s*\.?\s*/i, '')
+						.replace(/^(?:HBS|HBP)\s+(?:No\.?|#)\s*[A-Z0-9]+(?:[-–][A-Z0-9]+)*\s*\.?\s*/i, '');
+					if (/^https?:\/\//i.test(remainingText)) {
 						extractedData.journalOrBookTitle = extractedData.authors;
-						console.log("Remaining text starts with URL. Using authors as journalOrBookTitle:", extractedData.journalOrBookTitle); // Debug log
 					} else {
-						// Skip leading non-text characters
-						const match = remainingText.match(/^[^.\n!?]+(?=[.!\n])/); // Capture up to the first valid delimiter
-						if (match) {
-							extractedData.journalOrBookTitle = match[0].trim(); // Assign the captured text
-							console.log("Captured journalOrBookTitle:", extractedData.journalOrBookTitle); // Debug log
-						} else {
-							console.warn("Could not find a valid journal/book title for entry:", pText.slice(0, 50));
+						// Keep reading annotations and URLs out of the source name.
+						const sourceText = remainingText.split(/https?:\/\/|\((?:\d+\s+pages?\b|pp?\.|WLO\b)/i)[0].trim();
+						const match = sourceText.match(/^(?:(?:\b[A-Za-z]\.){2,}|[^.\n!?])+(?=[.!\n]|$)/);
+						if (match && match[0].trim() && !match[0].trim().startsWith('(')) {
+							extractedData.journalOrBookTitle = match[0].trim();
 						}
 					}
-				} else {
-					// Otherwise, use the italicized text as the journal/book title
-					extractedData.journalOrBookTitle = italicizedText;
 				}
 			} else {
 				console.warn("No <em> element found for journal/book title extraction in entry:", pText.slice(0, 50));
@@ -628,14 +669,19 @@ textarea {
 
 
 			// Extract page numbers
-			let pagesMatch = pText.match(/pp\.\s(\d+[-–]\d+)/);
+			// Ignore URL numbers, stopping before parentheses to preserve adjacent page counts.
+			const pageText = pText
+				.replace(/https?:\/\/[^\s<>()]+/gi, ' ')
+				// Labeled case identifiers are not page ranges (e.g., HBS No. 9-106-029).
+				.replace(/\b(?:HBS|HBP)\s+(?:No\.?|#)\s*[A-Z0-9]+(?:[-–][A-Z0-9]+)*\b/gi, ' ');
+			let pagesMatch = pageText.match(/pp\.\s(\d+[-–]\d+)/);
 			if (pagesMatch) {
 				extractedData.inclusivePages = pagesMatch[1].trim(); // Extract only the page range without "pp."
 				console.log("Extracted inclusivePages:", extractedData.inclusivePages); // Debug log
 			} else {
 				// Intermediary step: Look for standalone page ranges (e.g., "132–147")
 				const issueNumber = extractedData.journalIssue; // Retrieve the issue number for comparison
-				pagesMatch = pText.match(/\b(\d+[-–]\d+)\b/g); // Match all standalone ranges in the text
+				pagesMatch = pageText.match(/\b(\d+[-–]\d+)\b/g); // Match ranges outside URLs
 
 				if (pagesMatch) {
 					// Find the first page range that doesn't match the issue number
@@ -649,7 +695,7 @@ textarea {
 					}
 				} else {
 					// Secondary check for "(xx pages)" or "(1 page)"
-					const pageCountMatch = pText.match(/\((\d+)\s+pages?\)/);
+					const pageCountMatch = pageText.match(/\((\d+)\s+pages?\)/);
 					if (pageCountMatch) {
 						const pageCount = pageCountMatch[1]; // Extract the number of pages
 						extractedData.inclusivePages = `1-${pageCount}`; // Assign "1-xx" as the range
@@ -1017,8 +1063,8 @@ textarea {
 			const paragraphs = doc.querySelectorAll("p");
 
 			paragraphs.forEach(paragraph => {
-				// Match chapter/section/part notation at the start of the text
-				const chapterMatch = paragraph.textContent.match(/^(Chapter|Section|Part|Unit)\s+\d+\s*(?::|[-–])\s*/i);
+				// Match whole or dotted section numbers, such as Section 4 or Section 3.8.
+				const chapterMatch = paragraph.textContent.match(/^(Chapter|Section|Part|Unit)\s+\d+(?:\.\d+)*\s*(?::|[-–])\s*/i);
 
 				if (chapterMatch) {
 					// Extract the chapter notation
@@ -1029,7 +1075,7 @@ textarea {
 
 					if (linkElement) {
 						// Add the chapter notation to the hyperlink text
-						linkElement.textContent = chapterNotation + " " + linkElement.textContent.trim();
+						linkElement.textContent = chapterNotation.trim() + " " + linkElement.textContent.trim();
 
 						// Remove the chapter notation from the rest of the paragraph text
 						paragraph.innerHTML = paragraph.innerHTML.replace(chapterNotation, "").trim();
@@ -1048,7 +1094,9 @@ textarea {
 				// Handle the case for </em>. <em>
 				.replace(/<\/em>\s*\.\s*<em>/g, '. ')
 				// Handle the case for <em>.</em> or <em>, </em>
-            	.replace(/<em>\s*([.,])\s*<\/em>/g, '$1 ');
+            	.replace(/<em>\s*([.,])\s*<\/em>/g, '$1 ')
+				// Join italic runs split by pasted formatting such as highlighting
+				.replace(/<\/em>(\s*)<em>/g, '$1');
 		},
 		
 		removeEmptyElements(html, config) {
